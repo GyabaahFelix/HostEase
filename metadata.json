@@ -1,0 +1,6 @@
+{
+  "name": "HostelEase",
+  "description": "A modern, secure, and intuitive online university hostel allocation and management system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
