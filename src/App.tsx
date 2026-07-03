@@ -2794,7 +2794,7 @@ export default function App() {
                             {hostels.map((h) => (
                               <div 
                                 key={h.id} 
-                                className="bg-[#0A0A0B]/60 backdrop-blur-sm border border-white/[0.06] rounded-2xl flex flex-col justify-between relative group hover:border-indigo-500/45 hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-300 overflow-hidden cursor-pointer hover:-translate-y-1"
+                                className="bg-[#0F0F12] border border-white/[0.06] rounded-2xl flex flex-col justify-between relative group hover:border-indigo-500/45 hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-300 overflow-hidden cursor-pointer hover:-translate-y-1"
                                 onClick={() => {
                                   setDrilldownHostelId(h.id);
                                   api.listRooms(h.id).then(rList => setDrilldownRooms(rList)).catch(console.error);
@@ -2808,7 +2808,7 @@ export default function App() {
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" 
                                     referrerPolicy="no-referrer"
                                   />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0B] via-[#0A0A0B]/20 to-transparent"></div>
+                                  <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F12] via-[#0F0F12]/20 to-transparent"></div>
                                   
                                   {/* Badge Overlay */}
                                   <div className="absolute top-4 left-4 flex space-x-1.5 z-10">
@@ -2837,9 +2837,9 @@ export default function App() {
                                   </div>
                                 </div>
 
-                                <div className="p-5 flex-1 flex flex-col justify-between bg-zinc-950/95">
+                                <div className="p-5 flex-1 flex flex-col justify-between bg-[#0F0F12]">
                                   <div>
-                                    <h4 className="text-base font-extrabold tracking-tight text-white group-hover:text-indigo-300 transition-colors duration-300 leading-snug">{h.name}</h4>
+                                    <h4 className="text-base font-extrabold tracking-tight text-white group-hover:text-indigo-400 transition-colors duration-300 leading-snug">{h.name}</h4>
                                     <p className="text-xs text-slate-100 font-bold mt-2 flex items-center font-mono">
                                       <MapPin className="w-3.5 h-3.5 text-indigo-400 mr-1.5 shrink-0" />
                                       {h.location}
@@ -2860,7 +2860,7 @@ export default function App() {
                                   </div>
 
                                   <div className="mt-5 flex justify-center pt-2">
-                                    <span className="text-[10px] uppercase tracking-widest text-indigo-300 font-black group-hover:text-white flex items-center transition-colors">
+                                    <span className="text-[10px] uppercase tracking-widest text-indigo-300 font-black group-hover:text-indigo-400 flex items-center transition-colors">
                                       <Info className="w-3.5 h-3.5 mr-2 text-indigo-400 animate-pulse" />
                                       <span>Book & View Rooms</span>
                                     </span>
@@ -4179,11 +4179,11 @@ export default function App() {
               <span>Login as System Admin (Prof. Xavier)</span>
             </button>
           </div>
-          <p className="text-[9px] text-slate-600 mt-3 font-mono">Use the buttons above to instantly switch between accounts and demonstrate complete role-based workflows to lecturers without manual data re-entry.</p>
+          <p className="text-[9px] text-slate-400 mt-3 font-bold font-mono">Use the buttons above to instantly switch between accounts and demonstrate complete role-based workflows to lecturers without manual data re-entry.</p>
         </div>
 
         <div className="pt-4 border-t border-white/[0.03]">
-          <p className="text-[10px] text-slate-500 font-mono">HostelEase &copy; 2026. Designed as an Academic Year Software Engineering Final Thesis Project.</p>
+          <p className="text-[10px] text-slate-400 font-bold font-mono">HostelEase &copy; 2026. Designed as an Academic Year Software Engineering Final Thesis Project.</p>
         </div>
       </footer>
 
