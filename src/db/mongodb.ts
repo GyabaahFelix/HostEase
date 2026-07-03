@@ -1,60 +1,9 @@
-import mongoose, { Schema, Document } from 'mongoose';
 import crypto from 'crypto';
 import { DBEngine } from './db.js';
 import { Notification } from '../types';
+import { connectToMongoDB, MongoNotificationModel } from './mongoose.js';
 
-// Declare standard Mongo Schema for Notifications
-const MongoNotificationSchema = new Schema({
-  userId: { type: String, required: true, index: true }, // "all" for system announcements, or specific student id
-  title: { type: String, required: true },
-  message: { type: String, required: true },
-  type: { 
-    type: String, 
-    enum: ['application_update', 'allocation_update', 'system_announcement'], 
-    default: 'application_update',
-    index: true
-  },
-  readBy: [{ type: String }], // Array of student ids who read this (for system announcements)
-  read: { type: Boolean, default: false }, // For individual student notifications
-  createdAt: { type: Date, default: Date.now }
-});
-
-// Create Mongoose Model
-export const MongoNotificationModel: any = mongoose.models.MongoNotification || mongoose.model('MongoNotification', MongoNotificationSchema);
-
-// Connection manager
-let isConnected = false;
-
-export async function connectToMongoDB(): Promise<boolean> {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) {
-    return false;
-  }
-  
-  if (isConnected) {
-    return true;
-  }
-
-  try {
-    // Avoid re-connecting if already connected
-    if (mongoose.connection.readyState === 1) {
-      isConnected = true;
-      return true;
-    }
-
-    await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 3000,
-    });
-    
-    isConnected = true;
-    console.log('Successfully connected to MongoDB Notification database.');
-    return true;
-  } catch (err) {
-    console.error('MongoDB connection error, falling back to local storage:', err);
-    isConnected = false;
-    return false;
-  }
-}
+export { connectToMongoDB, MongoNotificationModel };
 
 /**
  * Service to manage notifications on either MongoDB or local file-based DB Engine.
@@ -69,15 +18,14 @@ export class NotificationService {
 
     if (mongoActive) {
       try {
-        // Query individual notifications OR system announcements
         const query: any = role === 'student' 
           ? { $or: [{ userId }, { userId: 'all' }] }
-          : {}; // Admins see everything or all system announcements
+          : {};
 
         const docs = await MongoNotificationModel.find(query).sort({ createdAt: -1 }).lean();
         
         return docs.map((doc: any) => ({
-          id: doc._id.toString(),
+          id: doc.id || doc._id.toString(),
           userId: doc.userId,
           title: doc.title,
           message: doc.message,
@@ -86,7 +34,7 @@ export class NotificationService {
           read: doc.userId === 'all' 
             ? (doc.readBy || []).includes(userId) 
             : doc.read,
-          createdAt: doc.createdAt.toISOString()
+          createdAt: typeof doc.createdAt === 'string' ? doc.createdAt : new Date(doc.createdAt).toISOString()
         }));
       } catch (err) {
         console.error('MongoDB query error, falling back to local:', err);
@@ -125,22 +73,23 @@ export class NotificationService {
     if (mongoActive) {
       try {
         const doc = await MongoNotificationModel.create({
+          id,
           userId,
           title,
           message,
           type,
           readBy: [],
           read: false,
-          createdAt: new Date(createdAt)
+          createdAt
         });
 
         return {
-          id: doc._id.toString(),
+          id,
           userId,
           title,
           message,
           type,
-          readBy: doc.readBy,
+          readBy: doc.readBy || [],
           read: false,
           createdAt
         };
@@ -167,16 +116,13 @@ export class NotificationService {
 
   /**
    * Mark a notification as read.
-   * If it is a system announcement, add the userId to readBy.
-   * If it is an individual notification, set read = true.
    */
   static async markAsRead(id: string, userId: string): Promise<boolean> {
     const mongoActive = await connectToMongoDB();
 
     if (mongoActive) {
       try {
-        // Find notification
-        const doc = await MongoNotificationModel.findById(id);
+        const doc = await MongoNotificationModel.findOne({ id });
         if (doc) {
           if (doc.userId === 'all') {
             if (!doc.readBy.includes(userId)) {

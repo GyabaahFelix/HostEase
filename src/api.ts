@@ -100,6 +100,15 @@ export const api = {
     return handleResponse<any>(res);
   },
 
+  async updateProfile(data: { name?: string; phone?: string; department?: string; gender?: string; password?: string }): Promise<{ message: string; user: User }> {
+    const res = await fetch(`${API_BASE}/auth/profile`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse<any>(res);
+  },
+
   // Hostels
   async listHostels(params?: { search?: string; type?: string; hasVacancy?: boolean; page?: number; limit?: number }): Promise<(Hostel & { totalRooms: number; totalCapacity: number; totalOccupied: number; availableCapacity: number })[]> {
     let url = `${API_BASE}/hostels`;

@@ -42,3 +42,199 @@
 .animate-fade-in {
   animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Light Mode Overrides (active when html does not have the .dark class) */
+html:not(.dark) {
+  body {
+    background-color: #f8fafc !important;
+    color: #334155 !important;
+  }
+
+  #hostelease-app,
+  .bg-\[\#0A0A0B\],
+  .bg-\[\#0A0A0B\]\/90,
+  .bg-\[\#0A0A0B\]\/85,
+  .bg-black {
+    background-color: #f8fafc !important;
+  }
+  
+  header.sticky {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .bg-\[\#0F0F12\],
+  .bg-\[\#121214\],
+  .bg-zinc-900,
+  .bg-neutral-900,
+  .bg-zinc-800,
+  .bg-\[\#0a0a0b\],
+  .bg-\[rgba\(10\,10\,11\,0\.85\)\] {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+  }
+
+  .bg-\[\#050506\] {
+    background-color: #f1f5f9 !important;
+  }
+
+  .bg-\[\#120F0F\] {
+    background-color: #fef2f2 !important;
+    border-color: #fca5a5 !important;
+  }
+
+  .bg-white\/\[0\.02\],
+  .bg-white\/5,
+  .bg-white\/10,
+  .bg-zinc-900\/50,
+  .bg-zinc-800\/50,
+  .bg-white\/\[0\.03\] {
+    background-color: #f1f5f9 !important;
+  }
+
+  input, select, textarea {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+  }
+  input::placeholder {
+    color: #94a3b8 !important;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 1px #6366f1 !important;
+  }
+
+  .border-white\/5,
+  .border-white\/10,
+  .border-zinc-800,
+  .border-zinc-700,
+  .border-white\/20,
+  .border-white\/30,
+  .border-white\/\[0\.03\],
+  .border-zinc-700\/50 {
+    border-color: #e2e8f0 !important;
+  }
+
+  .text-white,
+  .text-slate-100 {
+    color: #0f172a !important;
+  }
+  .text-slate-200 {
+    color: #1e293b !important;
+  }
+  .text-slate-300 {
+    color: #334155 !important;
+  }
+  .text-slate-400 {
+    color: #475569 !important;
+  }
+  .text-slate-500 {
+    color: #64748b !important;
+  }
+
+  .hover\:bg-white\/5:hover,
+  .hover\:bg-zinc-800:hover,
+  .hover\:bg-zinc-700:hover,
+  .hover\:bg-white\/10:hover,
+  .hover\:bg-white\/\[0\.05\]:hover,
+  .hover\:bg-white\/\[0\.08\]:hover {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+  }
+
+  .fixed.inset-0.bg-\[\#0A0A0B\]\/85 {
+    background-color: rgba(241, 245, 249, 0.85) !important;
+    backdrop-blur: 4px !important;
+  }
+  
+  .fixed.bottom-6.right-6.bg-\[\#0F0F12\] {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f5f9 !important;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15) !important;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25) !important;
+  }
+
+  .divide-white\/5 > :not([hidden]) ~ :not([hidden]),
+  .divide-zinc-800 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #e2e8f0 !important;
+  }
+
+  .text-indigo-400 {
+    color: #4f46e5 !important;
+  }
+  .text-indigo-300 {
+    color: #4f46e5 !important;
+  }
+  .text-purple-400 {
+    color: #7c3aed !important;
+  }
+  .text-green-400 {
+    color: #16a34a !important;
+  }
+  .text-emerald-400 {
+    color: #059669 !important;
+  }
+  .text-red-400 {
+    color: #dc2626 !important;
+  }
+  
+  .text-pink-400 {
+    color: #db2777 !important;
+  }
+
+  .text-amber-400 {
+    color: #ca8a04 !important;
+  }
+  
+  button.bg-indigo-600,
+  button.bg-indigo-700,
+  button.bg-red-600,
+  button.bg-green-600,
+  .bg-indigo-600,
+  .bg-red-600,
+  .bg-green-600,
+  .bg-indigo-500,
+  .bg-green-500 {
+    color: #ffffff !important;
+  }
+  button.bg-indigo-600 span,
+  button.bg-indigo-600 div {
+    color: #ffffff !important;
+  }
+
+  .absolute.bg-\[\#0F0F12\] {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  /* Custom styling for status pills */
+  .bg-green-500\/10 {
+    background-color: rgba(22, 163, 74, 0.1) !important;
+    border-color: rgba(22, 163, 74, 0.2) !important;
+    color: #16a34a !important;
+  }
+  .bg-red-500\/10 {
+    background-color: rgba(220, 38, 38, 0.1) !important;
+    border-color: rgba(220, 38, 38, 0.2) !important;
+    color: #dc2626 !important;
+  }
+  .bg-indigo-500\/10, .bg-indigo-500\/15 {
+    background-color: rgba(79, 70, 229, 0.1) !important;
+    border-color: rgba(79, 70, 229, 0.2) !important;
+    color: #4f46e5 !important;
+  }
+}
+

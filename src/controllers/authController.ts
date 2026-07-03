@@ -10,6 +10,34 @@ export const SessionStore = new Map<string, { userId: string; expiresAt: number 
 // Expiry of 24 hours
 const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
+// Secure helper to parse and sanitize JWT_EXPIRES_IN value (e.g. removing accidental surrounding quotes from .env)
+const getJwtExpiresIn = (): string | number => {
+  const val = process.env.JWT_EXPIRES_IN;
+  console.log('[DEBUG-JWT] Raw process.env.JWT_EXPIRES_IN:', JSON.stringify(val));
+  if (val === undefined || val === null) {
+    return '24h';
+  }
+  const trimmed = val.trim();
+  if (trimmed === '') {
+    return '24h';
+  }
+  const cleaned = trimmed.replace(/^['"]|['"]$/g, '');
+  console.log('[DEBUG-JWT] Cleaned JWT_EXPIRES_IN:', JSON.stringify(cleaned));
+  if (!cleaned || cleaned === '') {
+    return '24h';
+  }
+  if (/^\d+$/.test(cleaned)) {
+    return parseInt(cleaned, 10);
+  }
+  // Check if it matches a valid timespan string (e.g. "24h", "1d", "3600s", "12 hours")
+  const isValid = /^\d+\s*(s|m|h|d|w|y|second|seconds|minute|minutes|hour|hours|day|days|week|weeks|year|years)?$/i.test(cleaned);
+  if (!isValid) {
+    console.warn(`[DEBUG-JWT] Invalid timespan format detected: "${cleaned}". Falling back to "24h".`);
+    return '24h';
+  }
+  return cleaned;
+};
+
 export class AuthController {
   static async register(req: Request, res: Response): Promise<void> {
     try {
@@ -70,7 +98,7 @@ export class AuthController {
       const token = jwt.sign(
         { userId: newUser.id },
         (process.env.JWT_SECRET || 'fallback_dev_secret') as jwt.Secret,
-        { expiresIn: (process.env.JWT_EXPIRES_IN || '24h') as any }
+        { expiresIn: getJwtExpiresIn() as any }
       );
       SessionStore.set(token, {
         userId: newUser.id,
@@ -121,7 +149,7 @@ export class AuthController {
       const token = jwt.sign(
         { userId: user.id },
         (process.env.JWT_SECRET || 'fallback_dev_secret') as jwt.Secret,
-        { expiresIn: (process.env.JWT_EXPIRES_IN || '24h') as any }
+        { expiresIn: getJwtExpiresIn() as any }
       );
       SessionStore.set(token, {
         userId: user.id,
@@ -297,6 +325,58 @@ export class AuthController {
     } catch (error: any) {
       console.error('Error in sendVerificationEmail:', error);
       res.status(500).json({ error: 'Internal server error triggering verification.' });
+    }
+  }
+
+  static async updateProfile(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user as User;
+      const { name, phone, department, gender, password } = req.body;
+
+      const updates: Partial<User> = {};
+      if (name !== undefined) updates.name = name;
+      if (phone !== undefined) updates.phone = phone;
+      if (department !== undefined) updates.department = department;
+      if (gender !== undefined) {
+        if (!['male', 'female', 'other'].includes(gender)) {
+          res.status(400).json({ error: 'Gender must be male, female, or other.' });
+          return;
+        }
+        updates.gender = gender;
+      }
+      if (password !== undefined && password !== '') {
+        if (password.length < 6) {
+          res.status(400).json({ error: 'Password must be at least 6 characters.' });
+          return;
+        }
+        updates.passwordHash = hashPassword(password);
+      }
+
+      if (Object.keys(updates).length === 0) {
+        res.status(400).json({ error: 'No fields to update.' });
+        return;
+      }
+
+      const success = DBEngine.updateUser(user.id, updates);
+      if (!success) {
+        res.status(404).json({ error: 'User not found.' });
+        return;
+      }
+
+      const updatedUser = DBEngine.getUsers().find(u => u.id === user.id);
+      if (!updatedUser) {
+        res.status(404).json({ error: 'User not found.' });
+        return;
+      }
+
+      const { passwordHash: _, ...userResponse } = updatedUser;
+      res.status(200).json({
+        message: 'Profile updated successfully.',
+        user: userResponse,
+      });
+    } catch (error: any) {
+      console.error('Error in updateProfile:', error);
+      res.status(500).json({ error: 'Internal server error updating profile.' });
     }
   }
 }

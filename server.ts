@@ -92,6 +92,7 @@ app.use((req, res, next) => {
 app.post('/api/auth/register', AuthController.register);
 app.post('/api/auth/login', AuthController.login);
 app.get('/api/auth/me', authMiddleware, AuthController.me);
+app.put('/api/auth/profile', authMiddleware, AuthController.updateProfile);
 app.post('/api/auth/logout', AuthController.logout);
 app.post('/api/auth/forgot-password', AuthController.forgotPassword);
 app.post('/api/auth/reset-password', AuthController.resetPassword);
@@ -126,7 +127,10 @@ app.put('/api/notifications/:id/read', authMiddleware, StatsController.markNotif
 app.get('/api/students', authMiddleware, requireRole(['hostel_admin', 'system_admin']), StatsController.listStudents);
 
 // Root & Health Check Endpoints
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (req: Request, res: Response, next: NextFunction) => {
+  if (process.env.NODE_ENV !== 'production') {
+    return next();
+  }
   res.status(200).json({
     status: 'OK',
     service: 'HostelEase Backend',
@@ -148,15 +152,37 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-// Only listen if we are not running as a Vercel Serverless Function
-if (!process.env.VERCEL) {
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-  app.listen(port, '0.0.0.0', () => {
-    console.log(`====================================================`);
-    console.log(` HostelEase Standalone Backend Server Running on Port ${port}`);
-    console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`====================================================`);
-  });
+async function start() {
+  // If in development/non-production, enable Vite dev server to serve the React SPA
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+      console.log('Vite development middleware integrated.');
+    } catch (err) {
+      console.error('Failed to load Vite development middleware:', err);
+    }
+  }
+
+  // Only listen if we are not running as a Vercel Serverless Function
+  if (!process.env.VERCEL) {
+    const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`====================================================`);
+      console.log(` HostelEase Standalone Backend Server Running on Port ${port}`);
+      console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`====================================================`);
+    });
+  }
 }
+
+start().catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});
 
 export default app;

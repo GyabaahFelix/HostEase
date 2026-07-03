@@ -28,10 +28,14 @@ import {
   Search,
   Activity,
   Play,
-  Megaphone
+  Megaphone,
+  Sun,
+  Moon,
+  Monitor
 } from 'lucide-react';
 import { api } from './api';
 import { User, Hostel, Room, HostelApplication, Notification } from './types';
+import { EditProfileForm } from './components/EditProfileForm';
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend, CartesianGrid } from 'recharts';
 import { jsPDF } from 'jspdf';
 
@@ -77,6 +81,12 @@ export default function App() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState<boolean>(false);
   
+  // Theme Management States
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(
+    (localStorage.getItem('hostelease_theme') as 'light' | 'dark' | 'system') || 'system'
+  );
+  const [isThemeOpen, setIsThemeOpen] = useState(false);
+
   // Selection and Drilldown States
   const [selectedHostel, setSelectedHostel] = useState<Hostel | null>(null);
   const [roomHostelId, setRoomHostelId] = useState<string>(''); // For Room Management filter
@@ -478,6 +488,35 @@ export default function App() {
       console.error('Error fetching student directory:', err);
     }
   };
+
+  // Theme Application Logic
+  useEffect(() => {
+    const applyTheme = () => {
+      const root = document.documentElement;
+      let isDark = false;
+      if (theme === 'system') {
+        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      } else {
+        isDark = theme === 'dark';
+      }
+
+      if (isDark) {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    };
+
+    applyTheme();
+    localStorage.setItem('hostelease_theme', theme);
+
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const listener = () => applyTheme();
+      mediaQuery.addEventListener('change', listener);
+      return () => mediaQuery.removeEventListener('change', listener);
+    }
+  }, [theme]);
 
   // Reactive updates on query triggers
   useEffect(() => {
@@ -1055,94 +1094,141 @@ export default function App() {
             <h1 className="text-2xl lg:text-3xl font-serif italic text-white tracking-tight leading-none">HostelEase</h1>
             <p className="text-[9px] uppercase tracking-[0.2em] text-indigo-400 font-bold mt-1">University Housing Portal</p>
           </div>
-          <span className="hidden md:inline-flex px-2 py-0.5 bg-green-500/10 text-green-400 text-[9px] font-bold rounded-full border border-green-500/20 uppercase tracking-widest">
+          <span className="hidden md:inline-flex px-2 py-0.5 bg-green-500/10 text-green-400 text-[9px] font-bold rounded-full border border-green-500/20 uppercase tracking-widest font-sans">
             ● System Active
           </span>
         </div>
 
-        {user ? (
-          <div className="flex items-center space-x-6">
-            {/* Academic Session */}
-            <div className="hidden lg:block text-right">
-              <p className="text-[9px] uppercase tracking-wider text-slate-500">Current Session</p>
-              <p className="text-xs font-medium text-slate-200">2025/2026 Academic Term</p>
-            </div>
+        <div className="flex items-center space-x-4 lg:space-x-6">
+          {/* Theme Toggle Selector */}
+          <div className="relative">
+            <button 
+              onClick={() => setIsThemeOpen(!isThemeOpen)} 
+              className="relative p-2.5 rounded-xl border border-white/5 hover:bg-white/5 transition-all text-slate-300 hover:text-white flex items-center justify-center cursor-pointer"
+              title="Adjust system aesthetics"
+            >
+              {theme === 'light' && <Sun className="w-4.5 h-4.5 text-amber-500" />}
+              {theme === 'dark' && <Moon className="w-4.5 h-4.5 text-indigo-400" />}
+              {theme === 'system' && <Monitor className="w-4.5 h-4.5 text-slate-400" />}
+            </button>
 
-            {/* Notification Bell */}
-            <div className="relative">
-              <button 
-                onClick={() => setIsNotifOpen(!isNotifOpen)} 
-                className="relative p-2.5 rounded-xl border border-white/5 hover:bg-white/5 transition-all text-slate-300 hover:text-white"
-              >
-                <Bell className="w-4.5 h-4.5" />
-                {getUnreadCount() > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {getUnreadCount()}
-                  </span>
+            {isThemeOpen && (
+              <div className="absolute right-0 mt-3 w-40 bg-[#0F0F12] border border-white/10 rounded-2xl shadow-2xl p-2 z-50 animate-fade-in">
+                <button 
+                  onClick={() => { setTheme('light'); setIsThemeOpen(false); }}
+                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-left transition-all cursor-pointer ${
+                    theme === 'light' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Sun className="w-4 h-4" />
+                  <span>Light Mode</span>
+                </button>
+                <button 
+                  onClick={() => { setTheme('dark'); setIsThemeOpen(false); }}
+                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-left transition-all mt-1 cursor-pointer ${
+                    theme === 'dark' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Moon className="w-4 h-4" />
+                  <span>Dark Mode</span>
+                </button>
+                <button 
+                  onClick={() => { setTheme('system'); setIsThemeOpen(false); }}
+                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-left transition-all mt-1 cursor-pointer ${
+                    theme === 'system' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Monitor className="w-4 h-4" />
+                  <span>System Sync</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {user ? (
+            <div className="flex items-center space-x-4 lg:space-x-6">
+              {/* Academic Session */}
+              <div className="hidden lg:block text-right">
+                <p className="text-[9px] uppercase tracking-wider text-slate-500">Current Session</p>
+                <p className="text-xs font-medium text-slate-200">2025/2026 Academic Term</p>
+              </div>
+
+              {/* Notification Bell */}
+              <div className="relative">
+                <button 
+                  onClick={() => setIsNotifOpen(!isNotifOpen)} 
+                  className="relative p-2.5 rounded-xl border border-white/5 hover:bg-white/5 transition-all text-slate-300 hover:text-white cursor-pointer"
+                >
+                  <Bell className="w-4.5 h-4.5" />
+                  {getUnreadCount() > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                      {getUnreadCount()}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notification Dropdown */}
+                {isNotifOpen && (
+                  <div className="absolute right-0 mt-3 w-80 bg-[#0F0F12] border border-white/10 rounded-2xl shadow-2xl p-4 z-50 animate-fade-in">
+                    <div className="flex items-center justify-between pb-3 border-b border-white/5 mb-3">
+                      <h4 className="text-xs font-semibold text-white uppercase tracking-wider">Student Affairs Alerts</h4>
+                      {getUnreadCount() > 0 && (
+                        <span className="px-2 py-0.5 bg-indigo-500/15 text-indigo-400 text-[10px] rounded font-medium">
+                          {getUnreadCount()} New
+                        </span>
+                      )}
+                    </div>
+                    <div className="max-h-60 overflow-y-auto space-y-2">
+                      {notifications.length === 0 ? (
+                        <p className="text-[11px] text-slate-500 py-4 text-center">No recent activity notifications.</p>
+                      ) : (
+                        notifications.map(n => (
+                          <div 
+                            key={n.id} 
+                            onClick={() => handleMarkNotification(n.id)}
+                            className={`p-2.5 rounded-lg border transition-all text-left cursor-pointer ${
+                              n.read 
+                                ? 'bg-transparent border-white/5 opacity-55' 
+                                : 'bg-indigo-500/5 border-indigo-500/10 hover:border-indigo-500/20'
+                            }`}
+                          >
+                            <p className="text-xs font-semibold text-slate-200">{n.title}</p>
+                            <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">{n.message}</p>
+                            <span className="text-[8px] text-slate-500 mt-2 block font-mono">
+                              {new Date(n.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 )}
-              </button>
+              </div>
 
-              {/* Notification Dropdown */}
-              {isNotifOpen && (
-                <div className="absolute right-0 mt-3 w-80 bg-[#0F0F12] border border-white/10 rounded-2xl shadow-2xl p-4 z-50 animate-fade-in">
-                  <div className="flex items-center justify-between pb-3 border-b border-white/5 mb-3">
-                    <h4 className="text-xs font-semibold text-white uppercase tracking-wider">Student Affairs Alerts</h4>
-                    {getUnreadCount() > 0 && (
-                      <span className="px-2 py-0.5 bg-indigo-500/15 text-indigo-400 text-[10px] rounded font-medium">
-                        {getUnreadCount()} New
-                      </span>
-                    )}
-                  </div>
-                  <div className="max-h-60 overflow-y-auto space-y-2">
-                    {notifications.length === 0 ? (
-                      <p className="text-[11px] text-slate-500 py-4 text-center">No recent activity notifications.</p>
-                    ) : (
-                      notifications.map(n => (
-                        <div 
-                          key={n.id} 
-                          onClick={() => handleMarkNotification(n.id)}
-                          className={`p-2.5 rounded-lg border transition-all text-left cursor-pointer ${
-                            n.read 
-                              ? 'bg-transparent border-white/5 opacity-55' 
-                              : 'bg-indigo-500/5 border-indigo-500/10 hover:border-indigo-500/20'
-                          }`}
-                        >
-                          <p className="text-xs font-semibold text-slate-200">{n.title}</p>
-                          <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">{n.message}</p>
-                          <span className="text-[8px] text-slate-500 mt-2 block font-mono">
-                            {new Date(n.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
+              {/* User Profile Summary */}
+              <div className="flex items-center space-x-3 bg-white/[0.02] p-2 rounded-xl border border-white/5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-serif text-sm font-bold uppercase">
+                  {user.name.substring(0, 2)}
                 </div>
-              )}
-            </div>
-
-            {/* User Profile Summary */}
-            <div className="flex items-center space-x-3 bg-white/[0.02] p-2 rounded-xl border border-white/5">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-serif text-sm font-bold uppercase">
-                {user.name.substring(0, 2)}
+                <div className="hidden sm:block text-left">
+                  <p className="text-xs font-semibold text-white leading-none">{user.name}</p>
+                  <p className="text-[8px] text-indigo-400 uppercase tracking-widest font-bold mt-1">{user.role.replace('_', ' ')}</p>
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="p-1.5 text-slate-500 hover:text-red-400 rounded-lg hover:bg-red-500/5 transition-all cursor-pointer"
+                  title="Logout"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
-              <div className="hidden sm:block text-left">
-                <p className="text-xs font-semibold text-white leading-none">{user.name}</p>
-                <p className="text-[8px] text-indigo-400 uppercase tracking-widest font-bold mt-1">{user.role.replace('_', ' ')}</p>
-              </div>
-              <button 
-                onClick={handleLogout}
-                className="p-1.5 text-slate-500 hover:text-red-400 rounded-lg hover:bg-red-500/5 transition-all"
-                title="Logout"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
             </div>
-          </div>
-        ) : (
-          <div className="text-xs text-slate-400 uppercase tracking-widest hidden sm:block">
-            Secure Hostel Allocation Suite
-          </div>
-        )}
+          ) : (
+            <div className="text-xs text-slate-400 uppercase tracking-widest hidden sm:block">
+              Secure Hostel Allocation Suite
+            </div>
+          )}
+        </div>
       </header>
 
       {/* CORE WORKSPACE */}
@@ -1978,7 +2064,7 @@ export default function App() {
                   {/* TAB: Student Profile */}
                   {activeTab === 'profile' && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      <div className="bg-[#0F0F12] border border-white/5 p-8 rounded-2xl text-center">
+                      <div className="bg-[#0F0F12] border border-white/5 p-8 rounded-2xl text-center self-start">
                         <div className="w-20 h-20 bg-indigo-500/10 text-indigo-400 border-2 border-indigo-500/20 rounded-full flex items-center justify-center font-serif text-3xl font-bold mx-auto mb-4 uppercase">
                           {user.name.substring(0, 2)}
                         </div>
@@ -1997,25 +2083,36 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="lg:col-span-2 bg-[#0F0F12] border border-white/5 p-8 rounded-2xl">
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-white pb-3 border-b border-white/5 mb-6">Verification Credentials</h3>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <p className="text-[10px] uppercase tracking-widest text-slate-500">Matriculation Identifier</p>
-                            <p className="text-sm font-semibold font-mono text-slate-200 mt-1.5">{user.matricNoOrStaffId}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] uppercase tracking-widest text-slate-500">Email Address</p>
-                            <p className="text-sm font-semibold font-mono text-slate-200 mt-1.5">{user.email}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] uppercase tracking-widest text-slate-500">Mobile Phone</p>
-                            <p className="text-sm font-semibold font-mono text-slate-200 mt-1.5">{user.phone}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] uppercase tracking-widest text-slate-500">Account Enrolled</p>
-                            <p className="text-sm font-semibold font-mono text-slate-200 mt-1.5">{new Date(user.createdAt).toLocaleDateString()}</p>
+                      <div className="lg:col-span-2 space-y-6 text-left">
+                        <div className="bg-[#0F0F12] border border-white/5 p-8 rounded-2xl">
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-white pb-3 border-b border-white/5 mb-6">Modify Student Profile</h3>
+                          <EditProfileForm 
+                            user={user} 
+                            onProfileUpdated={(updatedUser) => setUser(updatedUser)} 
+                            showToast={showToast} 
+                          />
+                        </div>
+
+                        <div className="bg-[#0F0F12] border border-white/5 p-8 rounded-2xl">
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-white pb-3 border-b border-white/5 mb-6">Verification Credentials</h3>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-widest text-slate-500">Matriculation Identifier</p>
+                              <p className="text-sm font-semibold font-mono text-slate-200 mt-1.5">{user.matricNoOrStaffId}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase tracking-widest text-slate-500">Email Address</p>
+                              <p className="text-sm font-semibold font-mono text-slate-200 mt-1.5">{user.email}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase tracking-widest text-slate-500">Mobile Phone</p>
+                              <p className="text-sm font-semibold font-mono text-slate-200 mt-1.5">{user.phone}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase tracking-widest text-slate-500">Account Enrolled</p>
+                              <p className="text-sm font-semibold font-mono text-slate-200 mt-1.5">{new Date(user.createdAt).toLocaleDateString()}</p>
+                            </div>
                           </div>
                         </div>
                       </div>
