@@ -92,17 +92,18 @@ export class AuthController {
 
   static async login(req: Request, res: Response): Promise<void> {
     try {
-      const { emailOrUsername, password } = req.body;
+      const { emailOrUsername, username, email, password } = req.body;
+      const loginIdentity = emailOrUsername || username || email;
 
-      if (!emailOrUsername || !password) {
+      if (!loginIdentity || !password) {
         res.status(400).json({ error: 'Please provide email or username, and password.' });
         return;
       }
 
       const users = DBEngine.getUsers();
       const user = users.find(
-        u => u.email.toLowerCase() === emailOrUsername.toLowerCase() || 
-             u.username.toLowerCase() === emailOrUsername.toLowerCase()
+        u => u.email.toLowerCase() === loginIdentity.toLowerCase() || 
+             u.username.toLowerCase() === loginIdentity.toLowerCase()
       );
 
       if (!user) {

@@ -1,6 +1,9 @@
 import { User, Hostel, Room, HostelApplication, Notification } from './types';
 
-const API_BASE = ((import.meta as any).env?.VITE_API_URL as string) || '/api';
+let API_BASE = ((import.meta as any).env?.VITE_API_URL as string) || '/api';
+if (API_BASE && API_BASE !== '/api' && !API_BASE.endsWith('/api')) {
+  API_BASE = `${API_BASE.replace(/\/$/, '')}/api`;
+}
 
 function getHeaders(): HeadersInit {
   const token = localStorage.getItem('hostelease_token');

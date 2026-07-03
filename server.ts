@@ -4,7 +4,6 @@ dotenv.config();
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import cors from 'cors';
-import { createServer as createViteServer } from 'vite';
 import { DBEngine } from './src/db/db';
 import { AuthController } from './src/controllers/authController';
 import { HostelController } from './src/controllers/hostelController';
@@ -65,6 +64,8 @@ app.use(cors({
       allowedOrigins.includes('*') ||
       origin.includes('localhost') ||
       origin.endsWith('.run.app') ||
+      origin.endsWith('.vercel.app') ||
+      origin.includes('vercel') ||
       origin.includes('ai.studio')
     ) {
       callback(null, true);
@@ -124,47 +125,37 @@ app.post('/api/notifications/announcements', authMiddleware, requireRole(['hoste
 app.put('/api/notifications/:id/read', authMiddleware, StatsController.markNotificationRead);
 app.get('/api/students', authMiddleware, requireRole(['hostel_admin', 'system_admin']), StatsController.listStudents);
 
+// Root & Health Check Endpoints
+app.get('/', (req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'OK',
+    service: 'HostelEase Backend',
+    version: '1.0.0'
+  });
+});
+
+app.get('/api/health', (req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'OK',
+    service: 'HostelEase Backend',
+    version: '1.0.0'
+  });
+});
+
 // Error handling middleware
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled Server Error:', err);
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-// Serve frontend assets conditionally
-async function startServer() {
-  if (process.env.NODE_ENV === 'production') {
-    // Serve production assets from dist folder
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  } else {
-    // Enable Vite's HMR and dev server via express middleware
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  }
-
-  // Only listen if we are not running as a Vercel Serverless Function
-  if (!process.env.VERCEL) {
-    const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-    app.listen(port, '0.0.0.0', () => {
-      console.log(`====================================================`);
-      console.log(` HostelEase Full-Stack Server Running on Port ${port}`);
-      console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`====================================================`);
-    });
-  }
-}
-
-// Kick off server listeners
+// Only listen if we are not running as a Vercel Serverless Function
 if (!process.env.VERCEL) {
-  startServer().catch((error) => {
-    console.error('Failed to boot HostelEase server:', error);
-    process.exit(1);
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`====================================================`);
+    console.log(` HostelEase Standalone Backend Server Running on Port ${port}`);
+    console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`====================================================`);
   });
 }
 
