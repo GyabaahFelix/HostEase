@@ -2216,8 +2216,8 @@ export default function App() {
                                     <CreditCard className="w-16 h-16 text-indigo-500" />
                                   </div>
                                   <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">Realized Housing Revenue</p>
-                                  <p className="text-3xl font-light text-white font-mono">₦ {analytics.summary.realizedRevenue.toLocaleString()}</p>
-                                  <p className="text-[10px] text-slate-500 mt-2 font-mono">Projected Cap: ₦ {analytics.summary.projectedRevenue.toLocaleString()}</p>
+                                  <p className="text-3xl font-light text-white font-mono">GH₵ {analytics.summary.realizedRevenue.toLocaleString()}</p>
+                                  <p className="text-[10px] text-slate-500 mt-2 font-mono">Projected Cap: GH₵ {analytics.summary.projectedRevenue.toLocaleString()}</p>
                                 </div>
                               </div>
 
@@ -2546,7 +2546,7 @@ export default function App() {
                                         <td className="py-4 text-right text-slate-300">{report.newApplicationsCount}</td>
                                         <td className="py-4 text-right text-emerald-400">{report.approvedApplicationsCount}</td>
                                         <td className="py-4 text-right text-indigo-400">{report.paymentsConfirmedCount}</td>
-                                        <td className="py-4 text-right text-white font-bold">₦ {report.revenueGenerated.toLocaleString()}</td>
+                                        <td className="py-4 text-right text-white font-bold">GH₵ {report.revenueGenerated.toLocaleString()}</td>
                                         <td className="py-4 text-right text-slate-400 font-sans">{report.topHostelName}</td>
                                       </tr>
                                     ))}
@@ -3048,7 +3048,7 @@ export default function App() {
                                             {room.occupied} / {room.capacity}
                                           </span>
                                         </td>
-                                        <td className="px-5 py-4 font-mono">₦ {room.price.toLocaleString()}</td>
+                                        <td className="px-5 py-4 font-mono">GH₵ {room.price.toLocaleString()}</td>
                                         <td className="px-5 py-4">
                                           <span className={`px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-wider border ${
                                             room.status === 'available' 
@@ -3629,7 +3629,7 @@ export default function App() {
                           <div key={rm.id} className="bg-[#0A0A0B] border border-white/5 rounded-xl p-3 flex justify-between items-center text-xs font-mono">
                             <div>
                               <p className="font-semibold text-white font-sans text-xs">Room {rm.roomNo}</p>
-                              <p className="text-[9px] text-slate-500 mt-0.5">Capacity: {rm.capacity} beds • Price: ₦ {rm.price.toLocaleString()}</p>
+                              <p className="text-[9px] text-slate-500 mt-0.5">Capacity: {rm.capacity} beds • Price: GH₵ {rm.price.toLocaleString()}</p>
                             </div>
                             <div className="text-right">
                               {rm.status === 'maintenance' ? (
@@ -3731,7 +3731,7 @@ export default function App() {
                       <option value="">-- Choose Vacant Room --</option>
                       {candidateRooms.map(r => (
                         <option key={r.id} value={r.id}>
-                          Room {r.roomNo} ({r.capacity - r.occupied} vacancies left) — ₦{r.price.toLocaleString()}
+                          Room {r.roomNo} ({r.capacity - r.occupied} vacancies left) — GH₵ {r.price.toLocaleString()}
                         </option>
                       ))}
                     </select>
@@ -3792,7 +3792,7 @@ export default function App() {
               </div>
               <div className="pt-2 border-t border-white/5 flex justify-between text-sm font-semibold">
                 <span className="text-slate-300">Aggregate Fee Due:</span>
-                <span className="text-indigo-400 font-mono">₦ 150,000.00</span>
+                <span className="text-indigo-400 font-mono">GH₵ {(rooms.find(r => r.id === payingApp.roomId)?.price || 150000).toLocaleString()}.00</span>
               </div>
             </div>
 
@@ -3841,7 +3841,7 @@ export default function App() {
                 type="submit"
                 className="w-full bg-indigo-600 text-white font-medium py-3 rounded-xl hover:bg-indigo-500 transition-all text-xs uppercase tracking-wider font-semibold font-mono flex items-center justify-center space-x-2"
               >
-                <span>Authorize & Pay ₦150,000</span>
+                <span>Authorize & Pay GH₵ {(rooms.find(r => r.id === payingApp.roomId)?.price || 150000).toLocaleString()}</span>
               </button>
               <p className="text-center text-[9px] text-slate-500 font-mono">🔒 Payments secured via PCI-DSS encrypted Remita sandbox gateway.</p>
             </form>

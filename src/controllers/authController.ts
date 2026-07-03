@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { DBEngine, hashPassword, comparePassword } from '../db/db';
 import { User, UserRole } from '../types';
 import crypto from 'crypto';
@@ -65,8 +66,12 @@ export class AuthController {
 
       DBEngine.addUser(newUser);
 
-      // Create Session automatically
-      const token = `token_${crypto.randomBytes(32).toString('hex')}`;
+      // Create Session automatically (Real JWT + SessionStore fallback)
+      const token = jwt.sign(
+        { userId: newUser.id },
+        (process.env.JWT_SECRET || 'fallback_dev_secret') as jwt.Secret,
+        { expiresIn: (process.env.JWT_EXPIRES_IN || '24h') as any }
+      );
       SessionStore.set(token, {
         userId: newUser.id,
         expiresAt: Date.now() + SESSION_EXPIRY_MS,
@@ -111,8 +116,12 @@ export class AuthController {
         return;
       }
 
-      // Create session
-      const token = `token_${crypto.randomBytes(32).toString('hex')}`;
+      // Create session (Real JWT + SessionStore fallback)
+      const token = jwt.sign(
+        { userId: user.id },
+        (process.env.JWT_SECRET || 'fallback_dev_secret') as jwt.Secret,
+        { expiresIn: (process.env.JWT_EXPIRES_IN || '24h') as any }
+      );
       SessionStore.set(token, {
         userId: user.id,
         expiresAt: Date.now() + SESSION_EXPIRY_MS,

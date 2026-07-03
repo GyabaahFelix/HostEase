@@ -1,5 +1,9 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
+import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import { DBEngine } from './src/db/db';
 import { AuthController } from './src/controllers/authController';
@@ -8,10 +12,71 @@ import { ApplicationController } from './src/controllers/applicationController';
 import { StatsController } from './src/controllers/statsController';
 import { authMiddleware, requireRole } from './src/middleware/authMiddleware';
 
+// --- Environment Variables Startup Validation ---
+const requiredEnvVars = [
+  'PORT',
+  'NODE_ENV',
+  'ALLOWED_ORIGINS',
+  'MONGODB_URI',
+  'JWT_SECRET',
+  'JWT_EXPIRES_IN',
+  'CLOUDINARY_URL',
+  'GEMINI_API_KEY'
+];
+
+const missingVars = requiredEnvVars.filter(v => !process.env[v]);
+
+if (missingVars.length > 0) {
+  console.error('\n====================================================');
+  console.error('❌ SERVER STARTUP VALIDATION FAILED:');
+  console.error('Missing required environment variable(s):');
+  missingVars.forEach(v => {
+    console.error(`   - ${v}`);
+  });
+  console.error('====================================================\n');
+
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Stopping server because NODE_ENV is set to production.');
+    process.exit(1);
+  } else {
+    console.warn('⚠️ WARNING: Running in non-production mode, continuing startup...');
+  }
+}
+
 // Initialize internal JSON database
 DBEngine.initialize();
 
 const app = express();
+
+// Configure CORS
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',') 
+  : ['http://localhost:3000', 'http://localhost:5173'];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+    if (!origin) return callback(null, true);
+    
+    // In development or preview environments, or if matching allowedOrigins/wildcard/localhost/preview domains, allow it
+    if (
+      process.env.NODE_ENV !== 'production' ||
+      allowedOrigins.indexOf(origin) !== -1 ||
+      allowedOrigins.includes('*') ||
+      origin.includes('localhost') ||
+      origin.endsWith('.run.app') ||
+      origin.includes('ai.studio')
+    ) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
 // Log requests for auditing and system analytics
@@ -83,9 +148,9 @@ async function startServer() {
     app.use(vite.middlewares);
   }
 
-  // Only listen on port 3000 if we are not running as a Vercel Serverless Function
+  // Only listen if we are not running as a Vercel Serverless Function
   if (!process.env.VERCEL) {
-    const port = 3000;
+    const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
     app.listen(port, '0.0.0.0', () => {
       console.log(`====================================================`);
       console.log(` HostelEase Full-Stack Server Running on Port ${port}`);
