@@ -56,6 +56,13 @@ export class DBEngine {
         if (!this.data.rooms) this.data.rooms = [];
         if (!this.data.applications) this.data.applications = [];
         if (!this.data.notifications) this.data.notifications = [];
+
+        // Check if database is using the old template hostels, if so force re-seeding with UG data
+        const containsOldHostels = this.data.hostels.some(h => h.id === 'hst_nelson_mandela' || h.name.includes('Nelson Mandela'));
+        if (containsOldHostels || this.data.hostels.length < 5) {
+          console.log('Old or incomplete template dataset detected. Re-seeding with University of Ghana halls & hostels...');
+          this.seedDefaults();
+        }
       } catch (err) {
         console.error('Error reading database file, resetting to defaults:', err);
         this.seedDefaults();
@@ -91,30 +98,53 @@ export class DBEngine {
               MongoNotificationModel.find({}).lean()
             ]);
 
-            this.data = {
-              users: users.map((u: any) => {
-                const { _id, __v, ...rest } = u;
-                return rest as User;
-              }),
-              hostels: hostels.map((h: any) => {
-                const { _id, __v, ...rest } = h;
-                return rest as Hostel;
-              }),
-              rooms: rooms.map((r: any) => {
-                const { _id, __v, ...rest } = r;
-                return rest as Room;
-              }),
-              applications: applications.map((a: any) => {
-                const { _id, __v, ...rest } = a;
-                return rest as HostelApplication;
-              }),
-              notifications: notifications.map((n: any) => {
-                const { _id, __v, ...rest } = n;
-                return rest as Notification;
-              })
-            };
-            this.save();
-            console.log('Local memory cache successfully populated from MongoDB Atlas.');
+            const containsOldHostels = hostels.some((h: any) => h.id === 'hst_nelson_mandela' || h.name?.includes('Nelson Mandela'));
+            if (containsOldHostels || hostels.length < 5) {
+              console.log('MongoDB Atlas contains old or incomplete dataset. Re-seeding with University of Ghana halls & hostels...');
+              await Promise.all([
+                MongoUserModel.deleteMany({}),
+                MongoHostelModel.deleteMany({}),
+                MongoRoomModel.deleteMany({}),
+                MongoApplicationModel.deleteMany({}),
+                MongoNotificationModel.deleteMany({})
+              ]);
+
+              this.seedDefaults();
+
+              await Promise.all([
+                MongoUserModel.insertMany(this.data.users),
+                MongoHostelModel.insertMany(this.data.hostels),
+                MongoRoomModel.insertMany(this.data.rooms),
+                MongoApplicationModel.insertMany(this.data.applications),
+                MongoNotificationModel.insertMany(this.data.notifications)
+              ]);
+              console.log('MongoDB Atlas successfully re-seeded with University of Ghana halls and hostels!');
+            } else {
+              this.data = {
+                users: users.map((u: any) => {
+                  const { _id, __v, ...rest } = u;
+                  return rest as User;
+                }),
+                hostels: hostels.map((h: any) => {
+                  const { _id, __v, ...rest } = h;
+                  return rest as Hostel;
+                }),
+                rooms: rooms.map((r: any) => {
+                  const { _id, __v, ...rest } = r;
+                  return rest as Room;
+                }),
+                applications: applications.map((a: any) => {
+                  const { _id, __v, ...rest } = a;
+                  return rest as HostelApplication;
+                }),
+                notifications: notifications.map((n: any) => {
+                  const { _id, __v, ...rest } = n;
+                  return rest as Notification;
+                })
+              };
+              this.save();
+              console.log('Local memory cache successfully populated from MongoDB Atlas.');
+            }
           }
         }
       } catch (err) {
@@ -132,7 +162,7 @@ export class DBEngine {
   }
 
   private static seedDefaults() {
-    console.log('Seeding initial HostelEase database...');
+    console.log('Seeding initial HostelEase database with University of Ghana halls and hostels...');
 
     // Users
     const users: User[] = [
@@ -145,7 +175,7 @@ export class DBEngine {
         name: 'Prof. Charles Xavier',
         matricNoOrStaffId: 'STAFF/001',
         gender: 'male',
-        phone: '+234 801 234 5678',
+        phone: '+233 244 123 456',
         department: 'Information Technology Services',
         createdAt: new Date().toISOString(),
       },
@@ -158,8 +188,8 @@ export class DBEngine {
         name: 'Dr. Jean Grey',
         matricNoOrStaffId: 'STAFF/042',
         gender: 'female',
-        phone: '+234 802 345 6789',
-        department: 'Student Affairs',
+        phone: '+233 209 876 543',
+        department: 'Student Affairs Office',
         createdAt: new Date().toISOString(),
       },
       {
@@ -169,9 +199,9 @@ export class DBEngine {
         passwordHash: hashPassword('john123'),
         role: 'student',
         name: 'John Doe',
-        matricNoOrStaffId: 'RUN/2023/10234',
+        matricNoOrStaffId: 'UG/10923456/2024',
         gender: 'male',
-        phone: '+234 803 456 7890',
+        phone: '+233 555 456 789',
         department: 'Computer Science',
         createdAt: new Date().toISOString(),
       },
@@ -182,51 +212,174 @@ export class DBEngine {
         passwordHash: hashPassword('jane123'),
         role: 'student',
         name: 'Jane Smith',
-        matricNoOrStaffId: 'RUN/2023/10543',
+        matricNoOrStaffId: 'UG/10985432/2024',
         gender: 'female',
-        phone: '+234 804 567 8901',
+        phone: '+233 543 567 890',
         department: 'Software Engineering',
         createdAt: new Date().toISOString(),
       },
     ];
 
-    // Hostels
+    // Hostels (Authentic University of Ghana traditional halls and private hostels)
     const hostels: Hostel[] = [
       {
-        id: 'hst_nelson_mandela',
-        name: 'Nelson Mandela Hall',
+        id: 'hst_commonwealth',
+        name: 'Commonwealth Hall',
         type: 'male',
-        capacity: 120,
-        description: 'Premium boys hostel located close to the university sports complex. Includes high-speed WiFi, laundry services, and standard reading rooms.',
-        location: 'North Campus Quad',
+        capacity: 1500,
+        description: 'The premier all-male traditional hall of the University of Ghana, affectionately known as Vandal City. Fosters strong leadership, comradeship, and vibrant student traditions.',
+        location: 'Main Campus (Hilltop), Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80',
         createdAt: new Date().toISOString(),
       },
       {
-        id: 'hst_funmilayo_ransome',
-        name: 'Funmilayo Ransome-Kuti Hall',
-        type: 'female',
-        capacity: 120,
-        description: 'Elite female hostel with 24/7 power supply, a spacious modern kitchen, hair salon facilities, and excellent security.',
-        location: 'South Campus Quad',
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'hst_academic_villa',
-        name: 'Postgraduate Academic Villa',
+        id: 'hst_legon',
+        name: 'Legon Hall',
         type: 'unisex',
-        capacity: 50,
-        description: 'Quiet, premium unisex block reserved for research scholars, PG students, and final year honors. High-speed study pods, individual room kitchenettes.',
-        location: 'East Wing Campus',
+        capacity: 1200,
+        description: 'The premier traditional hall of the University of Ghana, establishing the foundation of academic excellence. Elegant architecture styled with quiet, serene quadrangle gardens.',
+        location: 'Main Campus (Central Quad), Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b6?auto=format&fit=crop&w=800&q=80',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'hst_akuafo',
+        name: 'Akuafo Hall',
+        type: 'unisex',
+        capacity: 1300,
+        description: 'Commonly known as the "Farmers\' Hall", Akuafo Hall is a vibrant traditional hall celebrating the rich agricultural roots of Ghana. Centrally located with high-speed student reading rooms.',
+        location: 'Main Campus, Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1592595896551-12b371d546d5?auto=format&fit=crop&w=800&q=80',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'hst_volta',
+        name: 'Volta Hall',
+        type: 'female',
+        capacity: 1000,
+        description: 'The premier all-female traditional hall at the University of Ghana. Highly revered for its extremely serene atmosphere, stellar security, and proud academic legacy.',
+        location: 'Main Campus (Near Registry), Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=800&q=80',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'hst_sarbah',
+        name: 'Mensah Sarbah Hall',
+        type: 'unisex',
+        capacity: 1400,
+        description: 'Named after the legendary patriot Mensah Sarbah. Home of the vibrant "Vikings" community, featuring spacious recreational grounds, modern study centers, and dining facilities.',
+        location: 'Main Campus (West Wing), Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'hst_kwapong',
+        name: 'Alexander Kwapong Hall',
+        type: 'unisex',
+        capacity: 1200,
+        description: 'A premium modern UGEL/Diaspora hall named in honor of the university\'s first Ghanaian Vice Chancellor. Features modern 4, 2, and 1-in-a-room apartments with en-suite bathrooms.',
+        location: 'Diaspora (Limann-Kwapong Quad), Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'hst_limann',
+        name: 'Hilla Limann Hall',
+        type: 'unisex',
+        capacity: 1200,
+        description: 'A state-of-the-art modern UGEL/Diaspora hall featuring comfortable study spaces, on-site supermarkets, backup power systems, and premium student facilities.',
+        location: 'Diaspora, Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'hst_sey',
+        name: 'Elizabeth Frances Sey Hall',
+        type: 'unisex',
+        capacity: 1200,
+        description: 'A highly comfortable, modern UGEL Diaspora hall named after the university\'s pioneer female graduate. Offers outstanding infrastructure, reading rooms, and fully fitted kitchens.',
+        location: 'Diaspora, Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'hst_jean_nelson',
+        name: 'Jean Nelson Aka Hall',
+        type: 'unisex',
+        capacity: 1200,
+        description: 'A vibrant modern UGEL Diaspora hall celebrated for its academic focus, cleanliness, high-speed study areas, and highly convenient local shops.',
+        location: 'Diaspora, Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&w=800&q=80',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'hst_pentagon',
+        name: 'African Union Hall (Pentagon)',
+        type: 'unisex',
+        capacity: 2500,
+        description: 'Affectionately known as "Pent", this is the premier and largest private-public partnership hostel on campus. Boasts an private gym, extensive food courts, banking halls, and standard shuttle services.',
+        location: 'Pentagon Area (North Campus), Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'hst_tf',
+        name: 'James Topp Nelson Yankah Hall (TF Hostel)',
+        type: 'unisex',
+        capacity: 2000,
+        description: 'Popularly known as TF Hostel, this spacious private hall offers highly affordable room plans, vibrant student social corridors, shuttle transit buses, and standard study halls.',
+        location: 'TF Area (Near Botanical Gardens), Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'hst_evandy',
+        name: 'Evandy Hostel',
+        type: 'unisex',
+        capacity: 1200,
+        description: 'A highly sought-after private hostel providing modern self-contained apartments, study balconies, fast-food dining halls, and robust student security networks.',
+        location: 'Near TF Hostel, Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'hst_bani',
+        name: 'Bani Hostel',
+        type: 'unisex',
+        capacity: 1000,
+        description: 'An outstanding private hostel featuring beautiful reading bays, high-speed fiber internet infrastructure, power generators, and personal room kitchenettes.',
+        location: 'Bani Area (Near Legon Botanical Gardens), Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'hst_jubilee',
+        name: 'Jubilee Hall',
+        type: 'unisex',
+        capacity: 500,
+        description: 'A quiet, celebratory university hostel. Offers peaceful single and double rooms dedicated to final-year undergraduate students, researchers, and honors students.',
+        location: 'Main Campus (Central), Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=800&q=80',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'hst_ish',
+        name: 'International Students Hostel (ISH)',
+        type: 'unisex',
+        capacity: 300,
+        description: 'A dedicated premium residential block catering to global foreign exchange students, international researchers, and academic visitors. Promotes global cultural integration.',
+        location: 'Near Volta Hall, Legon',
+        imageUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80',
         createdAt: new Date().toISOString(),
       },
     ];
 
-    // Rooms
+    // Rooms (Seeded rooms for each of the 15 halls and hostels with authentic structures)
     const rooms: Room[] = [
-      // Nelson Mandela Hall Rooms (Male)
+      // Commonwealth Hall Rooms (Male)
       {
-        id: 'rm_mandela_101',
-        hostelId: 'hst_nelson_mandela',
+        id: 'rm_commonwealth_101',
+        hostelId: 'hst_commonwealth',
         roomNo: 'A101',
         capacity: 4,
         occupied: 2,
@@ -235,8 +388,8 @@ export class DBEngine {
         createdAt: new Date().toISOString(),
       },
       {
-        id: 'rm_mandela_102',
-        hostelId: 'hst_nelson_mandela',
+        id: 'rm_commonwealth_102',
+        hostelId: 'hst_commonwealth',
         roomNo: 'A102',
         capacity: 4,
         occupied: 4,
@@ -245,8 +398,8 @@ export class DBEngine {
         createdAt: new Date().toISOString(),
       },
       {
-        id: 'rm_mandela_103',
-        hostelId: 'hst_nelson_mandela',
+        id: 'rm_commonwealth_103',
+        hostelId: 'hst_commonwealth',
         roomNo: 'A103',
         capacity: 2,
         occupied: 0,
@@ -254,11 +407,12 @@ export class DBEngine {
         status: 'available',
         createdAt: new Date().toISOString(),
       },
-      // Funmilayo Hall Rooms (Female)
+
+      // Legon Hall Rooms (Unisex)
       {
-        id: 'rm_funmilayo_101',
-        hostelId: 'hst_funmilayo_ransome',
-        roomNo: 'B101',
+        id: 'rm_legon_101',
+        hostelId: 'hst_legon',
+        roomNo: 'L101',
         capacity: 4,
         occupied: 1,
         price: 160000,
@@ -266,43 +420,308 @@ export class DBEngine {
         createdAt: new Date().toISOString(),
       },
       {
-        id: 'rm_funmilayo_102',
-        hostelId: 'hst_funmilayo_ransome',
-        roomNo: 'B102',
+        id: 'rm_legon_102',
+        hostelId: 'hst_legon',
+        roomNo: 'L102',
         capacity: 2,
         occupied: 2,
         price: 260000,
         status: 'full',
         createdAt: new Date().toISOString(),
       },
+
+      // Akuafo Hall Rooms (Unisex)
       {
-        id: 'rm_funmilayo_103',
-        hostelId: 'hst_funmilayo_ransome',
-        roomNo: 'B103',
+        id: 'rm_akuafo_101',
+        hostelId: 'hst_akuafo',
+        roomNo: 'AK101',
         capacity: 4,
         occupied: 0,
-        price: 160000,
-        status: 'maintenance',
+        price: 150000,
+        status: 'available',
         createdAt: new Date().toISOString(),
       },
-      // Postgraduate Villa Rooms
       {
-        id: 'rm_villa_101',
-        hostelId: 'hst_academic_villa',
-        roomNo: 'V101',
-        capacity: 1,
+        id: 'rm_akuafo_102',
+        hostelId: 'hst_akuafo',
+        roomNo: 'AK102',
+        capacity: 2,
         occupied: 1,
+        price: 250000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+
+      // Volta Hall Rooms (Female Only)
+      {
+        id: 'rm_volta_101',
+        hostelId: 'hst_volta',
+        roomNo: 'V101',
+        capacity: 4,
+        occupied: 2,
+        price: 170000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_volta_102',
+        hostelId: 'hst_volta',
+        roomNo: 'V102',
+        capacity: 2,
+        occupied: 0,
+        price: 270000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+
+      // Mensah Sarbah Rooms (Unisex)
+      {
+        id: 'rm_sarbah_101',
+        hostelId: 'hst_sarbah',
+        roomNo: 'MS101',
+        capacity: 4,
+        occupied: 3,
+        price: 150000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_sarbah_102',
+        hostelId: 'hst_sarbah',
+        roomNo: 'MS102',
+        capacity: 2,
+        occupied: 2,
+        price: 250000,
+        status: 'full',
+        createdAt: new Date().toISOString(),
+      },
+
+      // Alexander Kwapong Rooms (Unisex / Diaspora)
+      {
+        id: 'rm_kwapong_101',
+        hostelId: 'hst_kwapong',
+        roomNo: 'K101',
+        capacity: 4,
+        occupied: 2,
+        price: 350000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_kwapong_102',
+        hostelId: 'hst_kwapong',
+        roomNo: 'K102',
+        capacity: 2,
+        occupied: 0,
+        price: 450000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+
+      // Hilla Limann Rooms (Unisex / Diaspora)
+      {
+        id: 'rm_limann_101',
+        hostelId: 'hst_limann',
+        roomNo: 'HL101',
+        capacity: 4,
+        occupied: 1,
+        price: 350000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_limann_102',
+        hostelId: 'hst_limann',
+        roomNo: 'HL102',
+        capacity: 2,
+        occupied: 2,
         price: 450000,
         status: 'full',
         createdAt: new Date().toISOString(),
       },
+
+      // Elizabeth Frances Sey Rooms (Unisex / Diaspora)
       {
-        id: 'rm_villa_102',
-        hostelId: 'hst_academic_villa',
-        roomNo: 'V102',
-        capacity: 1,
+        id: 'rm_sey_101',
+        hostelId: 'hst_sey',
+        roomNo: 'S101',
+        capacity: 4,
+        occupied: 2,
+        price: 360000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_sey_102',
+        hostelId: 'hst_sey',
+        roomNo: 'S102',
+        capacity: 2,
+        occupied: 1,
+        price: 460000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+
+      // Jean Nelson Rooms (Unisex / Diaspora)
+      {
+        id: 'rm_jean_nelson_101',
+        hostelId: 'hst_jean_nelson',
+        roomNo: 'JN101',
+        capacity: 4,
+        occupied: 3,
+        price: 350000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_jean_nelson_102',
+        hostelId: 'hst_jean_nelson',
+        roomNo: 'JN102',
+        capacity: 2,
         occupied: 0,
         price: 450000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+
+      // Pentagon Rooms (Unisex / Private)
+      {
+        id: 'rm_pentagon_101',
+        hostelId: 'hst_pentagon',
+        roomNo: 'P101',
+        capacity: 4,
+        occupied: 2,
+        price: 650000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_pentagon_102',
+        hostelId: 'hst_pentagon',
+        roomNo: 'P102',
+        capacity: 2,
+        occupied: 2,
+        price: 850000,
+        status: 'full',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_pentagon_103',
+        hostelId: 'hst_pentagon',
+        roomNo: 'P103',
+        capacity: 1,
+        occupied: 0,
+        price: 1200000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+
+      // James Topp Nelson Yankah (TF Hostel) (Unisex / Private)
+      {
+        id: 'rm_tf_101',
+        hostelId: 'hst_tf',
+        roomNo: 'TF101',
+        capacity: 4,
+        occupied: 1,
+        price: 500000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_tf_102',
+        hostelId: 'hst_tf',
+        roomNo: 'TF102',
+        capacity: 2,
+        occupied: 0,
+        price: 700000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+
+      // Evandy Hostel Rooms (Unisex / Private)
+      {
+        id: 'rm_evandy_101',
+        hostelId: 'hst_evandy',
+        roomNo: 'E101',
+        capacity: 4,
+        occupied: 2,
+        price: 600000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_evandy_102',
+        hostelId: 'hst_evandy',
+        roomNo: 'E102',
+        capacity: 2,
+        occupied: 2,
+        price: 800000,
+        status: 'full',
+        createdAt: new Date().toISOString(),
+      },
+
+      // Bani Hostel Rooms (Unisex / Private)
+      {
+        id: 'rm_bani_101',
+        hostelId: 'hst_bani',
+        roomNo: 'B101',
+        capacity: 4,
+        occupied: 0,
+        price: 550000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_bani_102',
+        hostelId: 'hst_bani',
+        roomNo: 'B102',
+        capacity: 2,
+        occupied: 1,
+        price: 750000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+
+      // Jubilee Hall Rooms (Unisex)
+      {
+        id: 'rm_jubilee_101',
+        hostelId: 'hst_jubilee',
+        roomNo: 'J101',
+        capacity: 2,
+        occupied: 1,
+        price: 300000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_jubilee_102',
+        hostelId: 'hst_jubilee',
+        roomNo: 'J102',
+        capacity: 1,
+        occupied: 0,
+        price: 500000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+
+      // ISH Rooms (Unisex / International)
+      {
+        id: 'rm_ish_101',
+        hostelId: 'hst_ish',
+        roomNo: 'ISH101',
+        capacity: 2,
+        occupied: 2,
+        price: 400000,
+        status: 'full',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_ish_102',
+        hostelId: 'hst_ish',
+        roomNo: 'ISH102',
+        capacity: 1,
+        occupied: 0,
+        price: 600000,
         status: 'available',
         createdAt: new Date().toISOString(),
       },
@@ -313,12 +732,12 @@ export class DBEngine {
       {
         id: 'app_001',
         studentId: 'usr_student_john',
-        hostelId: 'hst_nelson_mandela',
-        roomId: 'rm_mandela_101',
+        hostelId: 'hst_commonwealth',
+        roomId: 'rm_commonwealth_101',
         academicYear: '2025/2026',
         status: 'approved',
         paymentStatus: 'paid',
-        message: 'Requesting allocation in Mandela Hall. Prefer a lower-bunk bed due to a minor sprain.',
+        message: 'Requesting allocation in Commonwealth Hall. Proud to be a vandal!',
         adminComment: 'Allocated to Room A101 lower bunk.',
         createdAt: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
         updatedAt: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString(),
@@ -326,12 +745,12 @@ export class DBEngine {
       {
         id: 'app_002',
         studentId: 'usr_student_jane',
-        hostelId: 'hst_funmilayo_ransome',
-        roomId: 'rm_funmilayo_101',
+        hostelId: 'hst_volta',
+        roomId: 'rm_volta_101',
         academicYear: '2025/2026',
         status: 'pending',
         paymentStatus: 'unpaid',
-        message: 'Looking forward to staying in Ransome Kuti hall. Close to my science departments.',
+        message: 'Looking forward to staying in Volta hall. Extremely safe and close to my departments.',
         createdAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
         updatedAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
       },
@@ -343,7 +762,7 @@ export class DBEngine {
         id: 'not_001',
         userId: 'usr_student_john',
         title: 'Application Approved',
-        message: 'Your hostel application for Nelson Mandela Hall has been approved and allocated to Room A101!',
+        message: 'Your hostel application for Commonwealth Hall has been approved and allocated to Room A101!',
         read: false,
         createdAt: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString(),
       },

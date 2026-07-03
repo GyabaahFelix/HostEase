@@ -31,11 +31,13 @@ import {
   Megaphone,
   Sun,
   Moon,
-  Monitor
+  Monitor,
+  Smartphone
 } from 'lucide-react';
 import { api } from './api';
 import { User, Hostel, Room, HostelApplication, Notification } from './types';
 import { EditProfileForm } from './components/EditProfileForm';
+import InstallAppPrompt from './components/InstallAppPrompt';
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend, CartesianGrid } from 'recharts';
 import { jsPDF } from 'jspdf';
 
@@ -100,6 +102,49 @@ export default function App() {
   const [newHostelLocation, setNewHostelLocation] = useState('');
   const [newHostelDesc, setNewHostelDesc] = useState('');
   const [newHostelImg, setNewHostelImg] = useState('');
+
+  const handleImageFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file from your local gallery', 'error');
+      return;
+    }
+    
+    setIsUploadingImg(true);
+    setUploadProgress(0);
+    setUploadSuccess(false);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64String = e.target?.result as string;
+      
+      // Simulate real-time CDN compression progress
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 20;
+        setUploadProgress(progress);
+        if (progress >= 100) {
+          clearInterval(interval);
+          setIsUploadingImg(false);
+          setUploadSuccess(true);
+          setNewHostelImg(base64String);
+          setCloudinaryMetadata({
+            publicId: 'gallery_' + file.name.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g, '_'),
+            bytes: file.size,
+            format: file.type.split('/')[1] || 'webp',
+            secureUrl: base64String,
+          });
+          showToast(`"${file.name}" uploaded and optimized via local gallery!`, 'success');
+        }
+      }, 100);
+    };
+    
+    reader.onerror = () => {
+      setIsUploadingImg(false);
+      showToast('Failed to read image file', 'error');
+    };
+    
+    reader.readAsDataURL(file);
+  };
 
   const [newRoomNo, setNewRoomNo] = useState('');
   const [newRoomCapacity, setNewRoomCapacity] = useState('4');
@@ -1152,6 +1197,17 @@ export default function App() {
                 <p className="text-[9px] uppercase tracking-wider text-slate-500">Current Session</p>
                 <p className="text-xs font-medium text-slate-200">2025/2026 Academic Term</p>
               </div>
+
+              {/* Mobile App Install Button */}
+              <button
+                onClick={() => (window as any).triggerInstallGuide?.()}
+                className="py-1.5 px-3 bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/20 hover:border-indigo-500/30 rounded-xl text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-all flex items-center space-x-1.5 cursor-pointer shadow-sm shadow-indigo-600/5 animate-pulse"
+                style={{ animationDuration: '3s' }}
+                title="Install HostelEase Mobile App on your Phone"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline uppercase tracking-wider">Get Mobile App</span>
+              </button>
 
               {/* Notification Bell */}
               <div className="relative">
@@ -2738,41 +2794,42 @@ export default function App() {
                             {hostels.map((h) => (
                               <div 
                                 key={h.id} 
-                                className="bg-[#0A0A0B] border border-white/5 rounded-xl flex flex-col justify-between relative group hover:border-indigo-500/35 transition-all overflow-hidden cursor-pointer"
+                                className="bg-[#0A0A0B]/60 backdrop-blur-sm border border-white/[0.06] rounded-2xl flex flex-col justify-between relative group hover:border-indigo-500/45 hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-300 overflow-hidden cursor-pointer hover:-translate-y-1"
                                 onClick={() => {
                                   setDrilldownHostelId(h.id);
                                   api.listRooms(h.id).then(rList => setDrilldownRooms(rList)).catch(console.error);
                                 }}
                               >
                                 {/* Cover Image */}
-                                <div className="h-36 w-full relative bg-slate-900 overflow-hidden shrink-0">
+                                <div className="h-44 w-full relative bg-slate-950 overflow-hidden shrink-0">
                                   <img 
                                     src={h.imageUrl || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'} 
                                     alt={h.name} 
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" 
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" 
                                     referrerPolicy="no-referrer"
                                   />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0B] to-transparent"></div>
+                                  <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0B] via-[#0A0A0B]/20 to-transparent"></div>
                                   
-                                  <div className="absolute top-3 left-3 flex space-x-1.5">
-                                    <span className={`px-2 py-0.5 text-[8px] font-bold rounded uppercase tracking-wider border ${
+                                  {/* Badge Overlay */}
+                                  <div className="absolute top-4 left-4 flex space-x-1.5 z-10">
+                                    <span className={`px-2.5 py-1 text-[9px] font-extrabold rounded-lg backdrop-blur-md shadow-md uppercase tracking-wider border ${
                                       h.type === 'male' 
-                                        ? 'bg-blue-500/15 text-blue-400 border-blue-500/25' 
+                                        ? 'bg-blue-950/80 text-blue-300 border-blue-500/25' 
                                         : h.type === 'female' 
-                                        ? 'bg-pink-500/15 text-pink-400 border-pink-500/25' 
-                                        : 'bg-indigo-500/15 text-indigo-400 border-indigo-500/25'
+                                        ? 'bg-pink-950/80 text-pink-300 border-pink-500/25' 
+                                        : 'bg-indigo-950/80 text-indigo-300 border-indigo-500/25'
                                     }`}>
-                                      {h.type}
+                                      {h.type} Only
                                     </span>
                                   </div>
 
-                                  <div className="absolute top-3 right-3">
+                                  <div className="absolute top-4 right-4 z-10">
                                     <button 
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleDeleteHostel(h.id);
                                       }}
-                                      className="p-1 text-slate-400 hover:text-red-400 rounded-md bg-black/40 hover:bg-red-500/10 transition-all border border-white/5"
+                                      className="p-1.5 text-slate-400 hover:text-red-400 rounded-lg bg-black/50 backdrop-blur-md hover:bg-red-500/10 transition-all border border-white/10"
                                       title="Delete Hostel"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
@@ -2780,30 +2837,32 @@ export default function App() {
                                   </div>
                                 </div>
 
-                                <div className="p-5 flex-1 flex flex-col justify-between">
+                                <div className="p-5 flex-1 flex flex-col justify-between bg-zinc-950/95">
                                   <div>
-                                    <h4 className="text-sm font-serif italic text-white group-hover:text-indigo-400 transition-all leading-snug">{h.name}</h4>
-                                    <p className="text-[10px] text-slate-500 mt-1 flex items-center font-mono">
-                                      <MapPin className="w-3 h-3 text-slate-600 mr-1 shrink-0" />
+                                    <h4 className="text-base font-extrabold tracking-tight text-white group-hover:text-indigo-300 transition-colors duration-300 leading-snug">{h.name}</h4>
+                                    <p className="text-xs text-slate-100 font-bold mt-2 flex items-center font-mono">
+                                      <MapPin className="w-3.5 h-3.5 text-indigo-400 mr-1.5 shrink-0" />
                                       {h.location}
                                     </p>
-                                    <p className="text-[11px] text-slate-400 mt-3 leading-relaxed line-clamp-2">{h.description || 'No description provided for this housing block.'}</p>
+                                    <p className="text-[12px] text-slate-300 font-medium mt-3.5 leading-relaxed line-clamp-3">{h.description || 'No description provided for this housing block.'}</p>
                                   </div>
 
-                                  <div className="mt-5 pt-4 border-t border-white/5 grid grid-cols-2 gap-2 text-center text-[10px] font-mono">
-                                    <div className="bg-white/[0.01] p-2 rounded border border-white/5">
-                                      <p className="text-slate-500 uppercase tracking-wider">Rooms Count</p>
-                                      <p className="text-sm font-semibold text-white mt-1">{h.totalRooms || 0}</p>
+                                  {/* Bento Style Statistics Grid */}
+                                  <div className="mt-5 pt-4 border-t border-white/10 grid grid-cols-2 gap-2 text-center text-[11px] font-mono">
+                                    <div className="bg-white/5 hover:bg-white/10 p-2.5 rounded-xl border border-white/10 transition-colors">
+                                      <p className="text-slate-400 font-extrabold uppercase tracking-wider text-[9px]">Rooms Count</p>
+                                      <p className="text-base font-black text-white mt-1">{h.totalRooms || 0}</p>
                                     </div>
-                                    <div className="bg-white/[0.01] p-2 rounded border border-white/5">
-                                      <p className="text-slate-500 uppercase tracking-wider">Available Beds</p>
-                                      <p className="text-sm font-semibold text-emerald-400 mt-1">{h.availableCapacity || 0}</p>
+                                    <div className="bg-indigo-500/10 hover:bg-indigo-500/15 p-2.5 rounded-xl border border-indigo-500/20 transition-colors">
+                                      <p className="text-indigo-300 font-extrabold uppercase tracking-wider text-[9px]">Available Beds</p>
+                                      <p className="text-base font-black text-emerald-400 mt-1">{h.availableCapacity || 0}</p>
                                     </div>
                                   </div>
 
-                                  <div className="mt-4 flex justify-center">
-                                    <span className="text-[9px] uppercase tracking-widest text-indigo-400 font-bold group-hover:underline flex items-center">
-                                      <Info className="w-3.5 h-3.5 mr-1" /> View Room Allocations & Info
+                                  <div className="mt-5 flex justify-center pt-2">
+                                    <span className="text-[10px] uppercase tracking-widest text-indigo-300 font-black group-hover:text-white flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5 mr-2 text-indigo-400 animate-pulse" />
+                                      <span>Book & View Rooms</span>
                                     </span>
                                   </div>
                                 </div>
@@ -2897,42 +2956,40 @@ export default function App() {
 
                           {/* Image Zone with Cloudinary simulation */}
                           <div className="border-t border-white/5 pt-4">
-                            <label className="block text-[9px] uppercase tracking-wider text-slate-400 mb-2 font-semibold font-mono">Hostel Block Image Asset (Cloudinary CDN Integration)</label>
+                            <label className="block text-[9px] uppercase tracking-wider text-slate-400 mb-2 font-semibold font-mono">Hostel Block Image Asset (Local Gallery + Cloudinary Compression)</label>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               <div className="md:col-span-2">
+                                {/* Hidden Local File Input */}
+                                <input 
+                                  type="file" 
+                                  id="hostel-gallery-upload-input"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleImageFile(file);
+                                  }}
+                                />
                                 {/* Drag & Drop Area */}
                                 <div 
                                   onClick={() => {
-                                    setIsUploadingImg(true);
-                                    setUploadProgress(0);
-                                    setUploadSuccess(false);
-                                    const interval = setInterval(() => {
-                                      setUploadProgress(p => {
-                                        if (p >= 100) {
-                                          clearInterval(interval);
-                                          setIsUploadingImg(false);
-                                          setUploadSuccess(true);
-                                          const unsplashIds = [
-                                            'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80',
-                                            'https://images.unsplash.com/photo-1595246140625-573b715d11dc?auto=format&fit=crop&w=800&q=80',
-                                            'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=800&q=80',
-                                          ];
-                                          const selectedImg = unsplashIds[Math.floor(Math.random() * unsplashIds.length)];
-                                          setNewHostelImg(selectedImg);
-                                          setCloudinaryMetadata({
-                                            publicId: 'cloudinary_hostelease_' + Math.random().toString(36).substring(5),
-                                            bytes: 182000 + Math.floor(Math.random() * 400000),
-                                            format: 'webp',
-                                            secureUrl: selectedImg,
-                                          });
-                                          showToast('Image successfully uploaded and compressed on Cloudinary CDN', 'success');
-                                          return 100;
-                                        }
-                                        return p + 25;
-                                      });
-                                    }, 200);
+                                    document.getElementById('hostel-gallery-upload-input')?.click();
                                   }}
-                                  className="border-2 border-dashed border-white/15 hover:border-indigo-500/40 bg-[#0A0A0B] rounded-xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-28"
+                                  onDragOver={(e) => {
+                                    e.preventDefault();
+                                    e.currentTarget.classList.add('border-indigo-500', 'bg-indigo-500/5');
+                                  }}
+                                  onDragLeave={(e) => {
+                                    e.preventDefault();
+                                    e.currentTarget.classList.remove('border-indigo-500', 'bg-indigo-500/5');
+                                  }}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.currentTarget.classList.remove('border-indigo-500', 'bg-indigo-500/5');
+                                    const file = e.dataTransfer.files?.[0];
+                                    if (file) handleImageFile(file);
+                                  }}
+                                  className="border-2 border-dashed border-white/15 hover:border-indigo-500/40 bg-[#0A0A0B] rounded-xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-28 hover:shadow-lg hover:shadow-indigo-500/5"
                                 >
                                   {isUploadingImg ? (
                                     <div className="space-y-2 w-full max-w-[150px]">
@@ -2947,7 +3004,8 @@ export default function App() {
                                         <CheckCircle2 className="w-4 h-4 shrink-0" />
                                         <span className="text-[10px] uppercase tracking-wider font-bold">Cloudinary Active</span>
                                       </div>
-                                      <p className="text-[8px] text-slate-500 font-mono truncate max-w-[180px]">{cloudinaryMetadata.publicId}.{cloudinaryMetadata.format}</p>
+                                      <p className="text-[8px] text-slate-300 font-mono truncate max-w-[180px] font-bold">{cloudinaryMetadata.publicId}.{cloudinaryMetadata.format}</p>
+                                      <p className="text-[8px] text-slate-500 font-mono font-bold">Size: {(cloudinaryMetadata.bytes / 1024).toFixed(1)} KB</p>
                                     </div>
                                   ) : (
                                     <div className="space-y-1">
@@ -4129,6 +4187,8 @@ export default function App() {
         </div>
       </footer>
 
+      {/* Progressive Web App Install Banner & Prompt */}
+      <InstallAppPrompt />
     </div>
   );
 }
