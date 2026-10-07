@@ -1,0 +1,122 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net - Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Validation Helper Primitives ---
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidUser(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.username is string && data.username.size() >= 2 && data.username.size() <= 100 &&
+             data.email is string && data.email.size() <= 120 &&
+             data.role in ['student', 'hostel_admin', 'system_admin'] &&
+             data.name is string && data.name.size() <= 150;
+    }
+
+    function isValidHostel(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 150 &&
+             data.type in ['male', 'female', 'unisex'] &&
+             data.capacity is number && data.capacity > 0 &&
+             data.location is string && data.location.size() <= 300;
+    }
+
+    function isValidRoom(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.hostelId is string && data.hostelId.size() <= 128 &&
+             data.roomNo is string && data.roomNo.size() <= 50 &&
+             data.capacity is number && data.capacity > 0 &&
+             data.price is number && data.price >= 0 &&
+             data.status in ['available', 'full', 'maintenance'];
+    }
+
+    function isValidApplication(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.studentId is string && data.studentId.size() <= 128 &&
+             data.hostelId is string && data.hostelId.size() <= 128 &&
+             data.academicYear is string && data.academicYear.size() <= 30 &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.paymentStatus in ['unpaid', 'paid'];
+    }
+
+    function isValidNotification(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() <= 200 &&
+             data.message is string && data.message.size() <= 1500 &&
+             data.read is bool;
+    }
+
+    // --- Entity Collections ---
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isValidId(userId);
+      allow list: if true;
+      allow create: if isValidId(userId) && isValidUser(incoming());
+      allow update: if isValidId(userId) && isValidUser(incoming());
+      allow delete: if isValidId(userId);
+    }
+
+    // Hostels Catalog
+    match /hostels/{hostelId} {
+      allow get: if isValidId(hostelId);
+      allow list: if true;
+      allow create: if isValidId(hostelId) && isValidHostel(incoming());
+      allow update: if isValidId(hostelId) && isValidHostel(incoming());
+      allow delete: if isValidId(hostelId);
+    }
+
+    // Rooms Directory
+    match /rooms/{roomId} {
+      allow get: if isValidId(roomId);
+      allow list: if true;
+      allow create: if isValidId(roomId) && isValidRoom(incoming());
+      allow update: if isValidId(roomId) && isValidRoom(incoming());
+      allow delete: if isValidId(roomId);
+    }
+
+    // Applications Collection
+    match /applications/{applicationId} {
+      allow get: if isValidId(applicationId);
+      allow list: if true;
+      allow create: if isValidId(applicationId) && isValidApplication(incoming());
+      allow update: if isValidId(applicationId) && isValidApplication(incoming());
+      allow delete: if isValidId(applicationId);
+    }
+
+    // Notifications Collection
+    match /notifications/{notificationId} {
+      allow get: if isValidId(notificationId);
+      allow list: if true;
+      allow create: if isValidId(notificationId) && isValidNotification(incoming());
+      allow update: if isValidId(notificationId) && isValidNotification(incoming());
+      allow delete: if isValidId(notificationId);
+    }
+
+    // Test connectivity document
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}

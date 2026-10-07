@@ -3,14 +3,21 @@ import path from 'path';
 import crypto from 'crypto';
 import { User, Hostel, Room, HostelApplication, Notification } from '../types';
 import { 
-  connectToMongoDB, 
-  isMongoConnected,
-  MongoUserModel, 
-  MongoHostelModel, 
-  MongoRoomModel, 
-  MongoApplicationModel, 
-  MongoNotificationModel 
-} from './mongoose.js';
+  db, 
+  testConnection, 
+  isFirebaseConnected, 
+  handleFirestoreError, 
+  OperationType,
+  firebaseConfig 
+} from './firebase';
+import { 
+  collection, 
+  doc, 
+  getDocs, 
+  setDoc, 
+  deleteDoc, 
+  writeBatch 
+} from 'firebase/firestore';
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DB_DIR, 'db.json');
@@ -23,7 +30,7 @@ interface DatabaseSchema {
   notifications: Notification[];
 }
 
-// Simple but secure PBKDF2 or SHA-256 password hashing helper using native crypto
+// SHA-256 password hashing helper using native crypto
 export function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
@@ -47,21 +54,21 @@ export class DBEngine {
       fs.mkdirSync(DB_DIR, { recursive: true });
     }
 
+    // 1. Initial local state from cache or defaults
     if (fs.existsSync(DB_FILE)) {
       try {
         const raw = fs.readFileSync(DB_FILE, 'utf8');
         this.data = JSON.parse(raw);
-        // Ensure all collections exist
         if (!this.data.users) this.data.users = [];
         if (!this.data.hostels) this.data.hostels = [];
         if (!this.data.rooms) this.data.rooms = [];
         if (!this.data.applications) this.data.applications = [];
         if (!this.data.notifications) this.data.notifications = [];
 
-        // Check if database is using the old template hostels, if so force re-seeding with UG data
+        // Check if database is using the old template hostels
         const containsOldHostels = this.data.hostels.some(h => h.id === 'hst_nelson_mandela' || h.name.includes('Nelson Mandela'));
         if (containsOldHostels || this.data.hostels.length < 5) {
-          console.log('Old or incomplete template dataset detected. Re-seeding with University of Ghana halls & hostels...');
+          console.log('Old template dataset detected. Re-seeding with University of Ghana halls & hostels...');
           this.seedDefaults();
         }
       } catch (err) {
@@ -72,85 +79,95 @@ export class DBEngine {
       this.seedDefaults();
     }
 
-    // Connect and synchronize with MongoDB Atlas if configured
-    if (process.env.MONGODB_URI) {
-      console.log('Connecting to MongoDB Atlas for persistent synchronization...');
-      try {
-        const connected = await connectToMongoDB();
-        if (connected) {
-          const userCount = await MongoUserModel.countDocuments();
-          if (userCount === 0) {
-            console.log('MongoDB is empty. Seeding local dataset into MongoDB Atlas...');
-            await Promise.all([
-              MongoUserModel.insertMany(this.data.users),
-              MongoHostelModel.insertMany(this.data.hostels),
-              MongoRoomModel.insertMany(this.data.rooms),
-              MongoApplicationModel.insertMany(this.data.applications),
-              MongoNotificationModel.insertMany(this.data.notifications)
-            ]);
-            console.log('MongoDB Atlas successfully seeded with initial defaults!');
-          } else {
-            console.log('MongoDB Atlas has existing records. Hydrating cache from Atlas...');
-            const [users, hostels, rooms, applications, notifications] = await Promise.all([
-              MongoUserModel.find({}).lean(),
-              MongoHostelModel.find({}).lean(),
-              MongoRoomModel.find({}).lean(),
-              MongoApplicationModel.find({}).lean(),
-              MongoNotificationModel.find({}).lean()
-            ]);
+    // 2. Connect and synchronize with Cloud Firestore
+    console.log('Connecting to Firebase Cloud Firestore for persistent synchronization...');
+    try {
+      const connected = await testConnection();
+      if (connected) {
+        // Query Firestore collections
+        const [usersSnap, hostelsSnap, roomsSnap, appsSnap, notifsSnap] = await Promise.all([
+          getDocs(collection(db, 'users')).catch(() => null),
+          getDocs(collection(db, 'hostels')).catch(() => null),
+          getDocs(collection(db, 'rooms')).catch(() => null),
+          getDocs(collection(db, 'applications')).catch(() => null),
+          getDocs(collection(db, 'notifications')).catch(() => null),
+        ]);
 
-            const containsOldHostels = hostels.some((h: any) => h.id === 'hst_nelson_mandela' || h.name?.includes('Nelson Mandela'));
-            if (containsOldHostels || hostels.length < 5) {
-              console.log('MongoDB Atlas contains old or incomplete dataset. Re-seeding with University of Ghana halls & hostels...');
-              await Promise.all([
-                MongoUserModel.deleteMany({}),
-                MongoHostelModel.deleteMany({}),
-                MongoRoomModel.deleteMany({}),
-                MongoApplicationModel.deleteMany({}),
-                MongoNotificationModel.deleteMany({})
-              ]);
+        const hasFirestoreData = usersSnap && !usersSnap.empty && hostelsSnap && !hostelsSnap.empty;
 
-              this.seedDefaults();
+        if (!hasFirestoreData) {
+          console.log('🔥 Cloud Firestore is currently empty or unseeded. Seeding dataset into Firestore...');
+          await this.syncAllToFirestore();
+          console.log('✅ Cloud Firestore successfully seeded with University of Ghana demo data!');
+        } else {
+          console.log('🔥 Cloud Firestore contains existing records. Hydrating memory store from Firestore...');
+          const firestoreUsers: User[] = [];
+          usersSnap?.forEach((docSnap) => firestoreUsers.push(docSnap.data() as User));
 
-              await Promise.all([
-                MongoUserModel.insertMany(this.data.users),
-                MongoHostelModel.insertMany(this.data.hostels),
-                MongoRoomModel.insertMany(this.data.rooms),
-                MongoApplicationModel.insertMany(this.data.applications),
-                MongoNotificationModel.insertMany(this.data.notifications)
-              ]);
-              console.log('MongoDB Atlas successfully re-seeded with University of Ghana halls and hostels!');
-            } else {
-              this.data = {
-                users: users.map((u: any) => {
-                  const { _id, __v, ...rest } = u;
-                  return rest as User;
-                }),
-                hostels: hostels.map((h: any) => {
-                  const { _id, __v, ...rest } = h;
-                  return rest as Hostel;
-                }),
-                rooms: rooms.map((r: any) => {
-                  const { _id, __v, ...rest } = r;
-                  return rest as Room;
-                }),
-                applications: applications.map((a: any) => {
-                  const { _id, __v, ...rest } = a;
-                  return rest as HostelApplication;
-                }),
-                notifications: notifications.map((n: any) => {
-                  const { _id, __v, ...rest } = n;
-                  return rest as Notification;
-                })
-              };
-              this.save();
-              console.log('Local memory cache successfully populated from MongoDB Atlas.');
-            }
+          const firestoreHostels: Hostel[] = [];
+          hostelsSnap?.forEach((docSnap) => firestoreHostels.push(docSnap.data() as Hostel));
+
+          const firestoreRooms: Room[] = [];
+          roomsSnap?.forEach((docSnap) => firestoreRooms.push(docSnap.data() as Room));
+
+          const firestoreApps: HostelApplication[] = [];
+          appsSnap?.forEach((docSnap) => firestoreApps.push(docSnap.data() as HostelApplication));
+
+          const firestoreNotifs: Notification[] = [];
+          notifsSnap?.forEach((docSnap) => firestoreNotifs.push(docSnap.data() as Notification));
+
+          if (firestoreUsers.length > 0) {
+            this.data.users = firestoreUsers;
           }
+          if (firestoreHostels.length > 0) {
+            this.data.hostels = firestoreHostels;
+          }
+          if (firestoreRooms.length > 0) {
+            this.data.rooms = firestoreRooms;
+          }
+          if (firestoreApps.length > 0) {
+            this.data.applications = firestoreApps;
+          }
+          if (firestoreNotifs.length > 0) {
+            this.data.notifications = firestoreNotifs;
+          }
+
+          this.save();
+          console.log(`✅ Cache hydrated from Cloud Firestore: ${this.data.users.length} users, ${this.data.hostels.length} hostels, ${this.data.rooms.length} rooms.`);
         }
-      } catch (err) {
-        console.error('Failed to sync with MongoDB Atlas on initialization:', err);
+      } else {
+        console.log('ℹ️  Running with local JSON storage engine. Cloud Firestore offline or pending credentials.');
       }
+    } catch (err: any) {
+      console.warn('⚠️  Could not complete initial Firestore sync (using local fallback engine):', err?.message || err);
+    }
+  }
+
+  // Push all local data into Firestore in batches
+  static async syncAllToFirestore() {
+    try {
+      // Seed Users
+      for (const user of this.data.users) {
+        await setDoc(doc(db, 'users', user.id), user, { merge: true });
+      }
+      // Seed Hostels
+      for (const hostel of this.data.hostels) {
+        await setDoc(doc(db, 'hostels', hostel.id), hostel, { merge: true });
+      }
+      // Seed Rooms
+      for (const room of this.data.rooms) {
+        await setDoc(doc(db, 'rooms', room.id), room, { merge: true });
+      }
+      // Seed Applications
+      for (const app of this.data.applications) {
+        await setDoc(doc(db, 'applications', app.id), app, { merge: true });
+      }
+      // Seed Notifications
+      for (const notif of this.data.notifications) {
+        await setDoc(doc(db, 'notifications', notif.id), notif, { merge: true });
+      }
+    } catch (err) {
+      console.warn('Error during Firestore batch sync:', err);
     }
   }
 
@@ -318,7 +335,7 @@ export class DBEngine {
         name: 'African Union Hall (Pentagon)',
         type: 'unisex',
         capacity: 2500,
-        description: 'Affectionately known as "Pent", this is the premier and largest private-public partnership hostel on campus. Boasts an private gym, extensive food courts, banking halls, and standard shuttle services.',
+        description: 'Affectionately known as "Pent", this is the premier and largest private-public partnership hostel on campus. Boasts a private gym, extensive food courts, banking halls, and standard shuttle services.',
         location: 'Pentagon Area (North Campus), Legon',
         imageUrl: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
         createdAt: new Date().toISOString(),
@@ -375,7 +392,7 @@ export class DBEngine {
       },
     ];
 
-    // Rooms (Seeded rooms for each of the 15 halls and hostels with authentic structures)
+    // Rooms
     const rooms: Room[] = [
       // Commonwealth Hall Rooms (Male)
       {
@@ -399,12 +416,22 @@ export class DBEngine {
         createdAt: new Date().toISOString(),
       },
       {
-        id: 'rm_commonwealth_103',
+        id: 'rm_commonwealth_201',
         hostelId: 'hst_commonwealth',
-        roomNo: 'A103',
+        roomNo: 'B201',
         capacity: 2,
-        occupied: 0,
+        occupied: 1,
         price: 250000,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'rm_commonwealth_202',
+        hostelId: 'hst_commonwealth',
+        roomNo: 'B202',
+        capacity: 1,
+        occupied: 0,
+        price: 400000,
         status: 'available',
         createdAt: new Date().toISOString(),
       },
@@ -415,7 +442,7 @@ export class DBEngine {
         hostelId: 'hst_legon',
         roomNo: 'L101',
         capacity: 4,
-        occupied: 1,
+        occupied: 3,
         price: 160000,
         status: 'available',
         createdAt: new Date().toISOString(),
@@ -425,9 +452,9 @@ export class DBEngine {
         hostelId: 'hst_legon',
         roomNo: 'L102',
         capacity: 2,
-        occupied: 2,
+        occupied: 0,
         price: 260000,
-        status: 'full',
+        status: 'available',
         createdAt: new Date().toISOString(),
       },
 
@@ -437,8 +464,8 @@ export class DBEngine {
         hostelId: 'hst_akuafo',
         roomNo: 'AK101',
         capacity: 4,
-        occupied: 0,
-        price: 150000,
+        occupied: 1,
+        price: 155000,
         status: 'available',
         createdAt: new Date().toISOString(),
       },
@@ -447,13 +474,13 @@ export class DBEngine {
         hostelId: 'hst_akuafo',
         roomNo: 'AK102',
         capacity: 2,
-        occupied: 1,
-        price: 250000,
-        status: 'available',
+        occupied: 2,
+        price: 255000,
+        status: 'full',
         createdAt: new Date().toISOString(),
       },
 
-      // Volta Hall Rooms (Female Only)
+      // Volta Hall Rooms (Female)
       {
         id: 'rm_volta_101',
         hostelId: 'hst_volta',
@@ -469,8 +496,8 @@ export class DBEngine {
         hostelId: 'hst_volta',
         roomNo: 'V102',
         capacity: 2,
-        occupied: 0,
-        price: 270000,
+        occupied: 1,
+        price: 280000,
         status: 'available',
         createdAt: new Date().toISOString(),
       },
@@ -491,9 +518,9 @@ export class DBEngine {
         hostelId: 'hst_sarbah',
         roomNo: 'MS102',
         capacity: 2,
-        occupied: 2,
+        occupied: 0,
         price: 250000,
-        status: 'full',
+        status: 'available',
         createdAt: new Date().toISOString(),
       },
 
@@ -601,15 +628,15 @@ export class DBEngine {
         hostelId: 'hst_pentagon',
         roomNo: 'P102',
         capacity: 2,
-        occupied: 2,
+        occupied: 1,
         price: 850000,
-        status: 'full',
+        status: 'available',
         createdAt: new Date().toISOString(),
       },
       {
-        id: 'rm_pentagon_103',
+        id: 'rm_pentagon_201',
         hostelId: 'hst_pentagon',
-        roomNo: 'P103',
+        roomNo: 'P201',
         capacity: 1,
         occupied: 0,
         price: 1200000,
@@ -617,14 +644,14 @@ export class DBEngine {
         createdAt: new Date().toISOString(),
       },
 
-      // James Topp Nelson Yankah (TF Hostel) (Unisex / Private)
+      // TF Rooms (Unisex / Private)
       {
         id: 'rm_tf_101',
         hostelId: 'hst_tf',
         roomNo: 'TF101',
         capacity: 4,
-        occupied: 1,
-        price: 500000,
+        occupied: 3,
+        price: 480000,
         status: 'available',
         createdAt: new Date().toISOString(),
       },
@@ -634,41 +661,41 @@ export class DBEngine {
         roomNo: 'TF102',
         capacity: 2,
         occupied: 0,
-        price: 700000,
+        price: 680000,
         status: 'available',
         createdAt: new Date().toISOString(),
       },
 
-      // Evandy Hostel Rooms (Unisex / Private)
+      // Evandy Rooms (Unisex / Private)
       {
         id: 'rm_evandy_101',
         hostelId: 'hst_evandy',
-        roomNo: 'E101',
+        roomNo: 'EV101',
         capacity: 4,
         occupied: 2,
-        price: 600000,
+        price: 550000,
         status: 'available',
         createdAt: new Date().toISOString(),
       },
       {
         id: 'rm_evandy_102',
         hostelId: 'hst_evandy',
-        roomNo: 'E102',
+        roomNo: 'EV102',
         capacity: 2,
-        occupied: 2,
-        price: 800000,
-        status: 'full',
+        occupied: 0,
+        price: 750000,
+        status: 'available',
         createdAt: new Date().toISOString(),
       },
 
-      // Bani Hostel Rooms (Unisex / Private)
+      // Bani Rooms (Unisex / Private)
       {
         id: 'rm_bani_101',
         hostelId: 'hst_bani',
         roomNo: 'B101',
         capacity: 4,
-        occupied: 0,
-        price: 550000,
+        occupied: 1,
+        price: 520000,
         status: 'available',
         createdAt: new Date().toISOString(),
       },
@@ -677,13 +704,13 @@ export class DBEngine {
         hostelId: 'hst_bani',
         roomNo: 'B102',
         capacity: 2,
-        occupied: 1,
-        price: 750000,
+        occupied: 0,
+        price: 720000,
         status: 'available',
         createdAt: new Date().toISOString(),
       },
 
-      // Jubilee Hall Rooms (Unisex)
+      // Jubilee Rooms (Unisex / Central)
       {
         id: 'rm_jubilee_101',
         hostelId: 'hst_jubilee',
@@ -794,12 +821,13 @@ export class DBEngine {
     return this.data.notifications;
   }
 
-  // Database Modifiers (Create, Update, Delete)
+  // Database Modifiers (Create, Update, Delete with Real-time Firestore Sync)
   static addUser(user: User) {
     this.data.users.push(user);
     this.save();
-    if (isMongoConnected()) {
-      MongoUserModel.create(user).catch((err: any) => console.warn('[Atlas sync (addUser)]:', err?.message || err));
+    if (isFirebaseConnected()) {
+      setDoc(doc(db, 'users', user.id), user)
+        .catch((err: any) => console.warn('[Firestore sync (addUser)]:', err?.message || err));
     }
   }
 
@@ -808,8 +836,9 @@ export class DBEngine {
     if (idx === -1) return false;
     this.data.users[idx] = { ...this.data.users[idx], ...updates };
     this.save();
-    if (isMongoConnected()) {
-      MongoUserModel.updateOne({ id }, { $set: updates }).catch((err: any) => console.warn('[Atlas sync (updateUser)]:', err?.message || err));
+    if (isFirebaseConnected()) {
+      setDoc(doc(db, 'users', id), this.data.users[idx], { merge: true })
+        .catch((err: any) => console.warn('[Firestore sync (updateUser)]:', err?.message || err));
     }
     return true;
   }
@@ -817,8 +846,9 @@ export class DBEngine {
   static addHostel(hostel: Hostel) {
     this.data.hostels.push(hostel);
     this.save();
-    if (isMongoConnected()) {
-      MongoHostelModel.create(hostel).catch((err: any) => console.warn('[Atlas sync (addHostel)]:', err?.message || err));
+    if (isFirebaseConnected()) {
+      setDoc(doc(db, 'hostels', hostel.id), hostel)
+        .catch((err: any) => console.warn('[Firestore sync (addHostel)]:', err?.message || err));
     }
   }
 
@@ -827,8 +857,9 @@ export class DBEngine {
     if (idx === -1) return false;
     this.data.hostels[idx] = { ...this.data.hostels[idx], ...updates };
     this.save();
-    if (isMongoConnected()) {
-      MongoHostelModel.updateOne({ id }, { $set: updates }).catch((err: any) => console.warn('[Atlas sync (updateHostel)]:', err?.message || err));
+    if (isFirebaseConnected()) {
+      setDoc(doc(db, 'hostels', id), this.data.hostels[idx], { merge: true })
+        .catch((err: any) => console.warn('[Firestore sync (updateHostel)]:', err?.message || err));
     }
     return true;
   }
@@ -841,11 +872,10 @@ export class DBEngine {
     this.data.applications = this.data.applications.filter((a) => a.hostelId !== id);
     this.save();
     
-    // Background MongoDB Atlas sync
-    if (isMongoConnected()) {
-      MongoHostelModel.deleteOne({ id }).catch((err: any) => console.warn('[Atlas sync (deleteHostel)]:', err?.message || err));
-      MongoRoomModel.deleteMany({ hostelId: id }).catch((err: any) => console.warn('[Atlas sync (cascade deleteRoom)]:', err?.message || err));
-      MongoApplicationModel.deleteMany({ hostelId: id }).catch((err: any) => console.warn('[Atlas sync (cascade deleteApplication)]:', err?.message || err));
+    // Background Firestore Sync
+    if (isFirebaseConnected()) {
+      deleteDoc(doc(db, 'hostels', id))
+        .catch((err: any) => console.warn('[Firestore sync (deleteHostel)]:', err?.message || err));
     }
     
     return this.data.hostels.length < lenBefore;
@@ -854,8 +884,9 @@ export class DBEngine {
   static addRoom(room: Room) {
     this.data.rooms.push(room);
     this.save();
-    if (isMongoConnected()) {
-      MongoRoomModel.create(room).catch((err: any) => console.warn('[Atlas sync (addRoom)]:', err?.message || err));
+    if (isFirebaseConnected()) {
+      setDoc(doc(db, 'rooms', room.id), room)
+        .catch((err: any) => console.warn('[Firestore sync (addRoom)]:', err?.message || err));
     }
   }
 
@@ -864,8 +895,9 @@ export class DBEngine {
     if (idx === -1) return false;
     this.data.rooms[idx] = { ...this.data.rooms[idx], ...updates };
     this.save();
-    if (isMongoConnected()) {
-      MongoRoomModel.updateOne({ id }, { $set: updates }).catch((err: any) => console.warn('[Atlas sync (updateRoom)]:', err?.message || err));
+    if (isFirebaseConnected()) {
+      setDoc(doc(db, 'rooms', id), this.data.rooms[idx], { merge: true })
+        .catch((err: any) => console.warn('[Firestore sync (updateRoom)]:', err?.message || err));
     }
     return true;
   }
@@ -874,8 +906,9 @@ export class DBEngine {
     const lenBefore = this.data.rooms.length;
     this.data.rooms = this.data.rooms.filter((r) => r.id !== id);
     this.save();
-    if (isMongoConnected()) {
-      MongoRoomModel.deleteOne({ id }).catch((err: any) => console.warn('[Atlas sync (deleteRoom)]:', err?.message || err));
+    if (isFirebaseConnected()) {
+      deleteDoc(doc(db, 'rooms', id))
+        .catch((err: any) => console.warn('[Firestore sync (deleteRoom)]:', err?.message || err));
     }
     return this.data.rooms.length < lenBefore;
   }
@@ -883,8 +916,9 @@ export class DBEngine {
   static addApplication(app: HostelApplication) {
     this.data.applications.push(app);
     this.save();
-    if (isMongoConnected()) {
-      MongoApplicationModel.create(app).catch((err: any) => console.warn('[Atlas sync (addApplication)]:', err?.message || err));
+    if (isFirebaseConnected()) {
+      setDoc(doc(db, 'applications', app.id), app)
+        .catch((err: any) => console.warn('[Firestore sync (addApplication)]:', err?.message || err));
     }
   }
 
@@ -893,8 +927,9 @@ export class DBEngine {
     if (idx === -1) return false;
     this.data.applications[idx] = { ...this.data.applications[idx], ...updates, updatedAt: new Date().toISOString() };
     this.save();
-    if (isMongoConnected()) {
-      MongoApplicationModel.updateOne({ id }, { $set: { ...updates, updatedAt: new Date().toISOString() } }).catch((err: any) => console.warn('[Atlas sync (updateApplication)]:', err?.message || err));
+    if (isFirebaseConnected()) {
+      setDoc(doc(db, 'applications', id), this.data.applications[idx], { merge: true })
+        .catch((err: any) => console.warn('[Firestore sync (updateApplication)]:', err?.message || err));
     }
     return true;
   }
@@ -903,8 +938,9 @@ export class DBEngine {
     const lenBefore = this.data.applications.length;
     this.data.applications = this.data.applications.filter((a) => a.id !== id);
     this.save();
-    if (isMongoConnected()) {
-      MongoApplicationModel.deleteOne({ id }).catch((err: any) => console.warn('[Atlas sync (deleteApplication)]:', err?.message || err));
+    if (isFirebaseConnected()) {
+      deleteDoc(doc(db, 'applications', id))
+        .catch((err: any) => console.warn('[Firestore sync (deleteApplication)]:', err?.message || err));
     }
     return this.data.applications.length < lenBefore;
   }
@@ -912,8 +948,9 @@ export class DBEngine {
   static addNotification(notif: Notification) {
     this.data.notifications.push(notif);
     this.save();
-    if (isMongoConnected()) {
-      MongoNotificationModel.create(notif).catch((err: any) => console.warn('[Atlas sync (addNotification)]:', err?.message || err));
+    if (isFirebaseConnected()) {
+      setDoc(doc(db, 'notifications', notif.id), notif)
+        .catch((err: any) => console.warn('[Firestore sync (addNotification)]:', err?.message || err));
     }
   }
 
@@ -922,8 +959,9 @@ export class DBEngine {
     if (!notif) return false;
     notif.read = true;
     this.save();
-    if (isMongoConnected()) {
-      MongoNotificationModel.updateOne({ id }, { $set: { read: true } }).catch((err: any) => console.warn('[Atlas sync (markNotificationRead)]:', err?.message || err));
+    if (isFirebaseConnected()) {
+      setDoc(doc(db, 'notifications', id), { read: true }, { merge: true })
+        .catch((err: any) => console.warn('[Firestore sync (markNotificationRead)]:', err?.message || err));
     }
     return true;
   }

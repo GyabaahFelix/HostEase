@@ -2,8 +2,8 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/authMiddleware';
 import { DBEngine } from '../db/db';
 import { HostelApplication, Notification, Room } from '../types';
+import { NotificationService } from '../db/notifications';
 import crypto from 'crypto';
-import { NotificationService } from '../db/mongodb';
 
 export class ApplicationController {
   static async submitApplication(req: AuthenticatedRequest, res: Response): Promise<void> {

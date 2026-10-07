@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/authMiddleware';
 import { DBEngine } from '../db/db';
-import { NotificationService } from '../db/mongodb';
+import { NotificationService } from '../db/notifications';
 
 export class StatsController {
   static async getStats(req: AuthenticatedRequest, res: Response): Promise<void> {

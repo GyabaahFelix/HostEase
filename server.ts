@@ -30,16 +30,31 @@ if (missingCoreVars.length > 0) {
 }
 
 // Optional integrations check
+import fs from 'fs';
+const hasFirebaseConfig = fs.existsSync(path.join(process.cwd(), 'firebase-applet-config.json')) || Boolean(process.env.FIREBASE_PROJECT_ID);
+
 const optionalIntegrations = [
-  { name: 'MongoDB Atlas Persistence', key: 'MONGODB_URI', fallback: 'Internal JSON Database Engine (data/db.json)' },
-  { name: 'Cloudinary CDN Asset Storage', key: 'CLOUDINARY_URL', fallback: 'Local Asset Gallery' },
-  { name: 'Gemini AI Assistant', key: 'GEMINI_API_KEY', fallback: 'Heuristic Rule-Based Matching' }
+  { 
+    name: 'Firebase Cloud Firestore Persistence', 
+    isConfigured: hasFirebaseConfig, 
+    fallback: 'Internal JSON Database Engine (data/db.json)' 
+  },
+  { 
+    name: 'Cloudinary CDN Asset Storage', 
+    isConfigured: Boolean(process.env.CLOUDINARY_URL), 
+    fallback: 'Local Asset Gallery' 
+  },
+  { 
+    name: 'Gemini AI Assistant', 
+    isConfigured: Boolean(process.env.GEMINI_API_KEY), 
+    fallback: 'Heuristic Rule-Based Matching' 
+  }
 ];
 
 console.log('--- System Integrations Status ---');
 optionalIntegrations.forEach(svc => {
-  if (process.env[svc.key]) {
-    console.log(`✅ ${svc.name}: Configured via ${svc.key}`);
+  if (svc.isConfigured) {
+    console.log(`✅ ${svc.name}: Configured and active`);
   } else {
     console.log(`ℹ️  ${svc.name}: Not configured. Active Fallback -> ${svc.fallback}`);
   }

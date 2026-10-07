@@ -55,6 +55,21 @@
       "department": "Software Engineering",
       "createdAt": "2026-07-03T13:52:48.641Z",
       "isEmailVerified": false
+    },
+    {
+      "id": "usr_0a023e3be6d79a12",
+      "username": "kofi_annang",
+      "email": "kofi.annang@student.ug.edu.gh",
+      "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+      "role": "student",
+      "name": "Kofi Annang",
+      "matricNoOrStaffId": "UG/10998877/2025",
+      "gender": "male",
+      "phone": "+233 24 555 1234",
+      "department": "Computer Engineering",
+      "createdAt": "2026-10-07T10:04:09.796Z",
+      "isEmailVerified": false,
+      "emailVerificationToken": "verify_c0a5dcb866f4c04d21f0c16e8652b6f9"
     }
   ],
   "hostels": [

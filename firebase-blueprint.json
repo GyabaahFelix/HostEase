@@ -1,0 +1,263 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account and profile entity for students, hostel managers, and system administrators",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the user (e.g. usr_xxx)",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "username": {
+          "type": "string",
+          "description": "Unique username",
+          "minLength": 3,
+          "maxLength": 50
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address",
+          "maxLength": 100
+        },
+        "passwordHash": {
+          "type": "string",
+          "description": "Hashed password using SHA-256",
+          "maxLength": 128
+        },
+        "role": {
+          "type": "string",
+          "description": "Role in the hostel management system",
+          "enum": ["student", "hostel_admin", "system_admin"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Full display name",
+          "maxLength": 100
+        },
+        "matricNoOrStaffId": {
+          "type": "string",
+          "description": "Matriculation number or university staff ID",
+          "maxLength": 50
+        },
+        "gender": {
+          "type": "string",
+          "enum": ["male", "female", "other"]
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 25
+        },
+        "department": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of user registration"
+        },
+        "isEmailVerified": {
+          "type": "boolean",
+          "description": "Whether user email is verified"
+        },
+        "emailVerificationToken": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "required": ["id", "username", "email", "role", "name", "createdAt"]
+    },
+    "Hostel": {
+      "title": "Hostel",
+      "description": "University hall of residence or private student hostel",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique hostel identifier (e.g. hst_xxx)",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Hall or hostel name",
+          "maxLength": 100
+        },
+        "type": {
+          "type": "string",
+          "description": "Hostel demographic category",
+          "enum": ["male", "female", "unisex"]
+        },
+        "capacity": {
+          "type": "number",
+          "description": "Total bed capacity"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "location": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "imageUrl": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "name", "type", "capacity", "location", "createdAt"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "Room within a designated hostel",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "hostelId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "roomNo": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "capacity": {
+          "type": "number"
+        },
+        "occupied": {
+          "type": "number"
+        },
+        "price": {
+          "type": "number",
+          "description": "Academic year price in GHS or NGN"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["available", "full", "maintenance"]
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "hostelId", "roomNo", "capacity", "price", "status", "createdAt"]
+    },
+    "HostelApplication": {
+      "title": "HostelApplication",
+      "description": "Hostel room application submitted by a student",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "studentId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "hostelId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "roomId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "academicYear": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"]
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["unpaid", "paid"]
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "adminComment": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "studentId", "hostelId", "academicYear", "status", "paymentStatus", "createdAt", "updatedAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Student or system announcement notification",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "read": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "userId", "title", "message", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles indexed by userId"
+    },
+    "/hostels/{hostelId}": {
+      "schema": "Hostel",
+      "description": "University halls and private hostels catalog"
+    },
+    "/rooms/{roomId}": {
+      "schema": "Room",
+      "description": "Hostel rooms indexed by roomId"
+    },
+    "/applications/{applicationId}": {
+      "schema": "HostelApplication",
+      "description": "Student hostel accommodation applications"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "System and user notifications"
+    }
+  }
+}
