@@ -1,36 +1,80 @@
 import mongoose, { Schema } from 'mongoose';
 
-// Connection manager
+// Connection state manager
 let isConnected = false;
+let connectionPromise: Promise<boolean> | null = null;
+let lastAttemptFailed = false;
+let lastAttemptTime = 0;
+const RETRY_COOLDOWN_MS = 30000; // 30 seconds cooldown before retrying unreachable cluster
+
+export function isMongoConnected(): boolean {
+  return isConnected && mongoose.connection.readyState === 1;
+}
+
+export function isValidMongoUri(uri?: string): boolean {
+  if (!uri) return false;
+  const trimmed = uri.trim();
+  if (!trimmed.startsWith('mongodb://') && !trimmed.startsWith('mongodb+srv://')) {
+    return false;
+  }
+  // Check for placeholder credentials in templates
+  if (trimmed.includes('<username>') || trimmed.includes('<password>') || trimmed.includes('<dbname>')) {
+    return false;
+  }
+  return true;
+}
 
 export async function connectToMongoDB(): Promise<boolean> {
   const uri = process.env.MONGODB_URI;
-  if (!uri) {
+  if (!isValidMongoUri(uri)) {
     return false;
   }
   
-  if (isConnected) {
+  if (isConnected && mongoose.connection.readyState === 1) {
     return true;
   }
 
-  try {
-    if (mongoose.connection.readyState === 1) {
-      isConnected = true;
-      return true;
-    }
-
-    await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000,
-    });
-    
-    isConnected = true;
-    console.log('Successfully connected to MongoDB.');
-    return true;
-  } catch (err) {
-    console.error('MongoDB connection error:', err);
-    isConnected = false;
+  // If a recent attempt failed, respect cooldown to prevent request stalling
+  const now = Date.now();
+  if (lastAttemptFailed && now - lastAttemptTime < RETRY_COOLDOWN_MS) {
     return false;
   }
+
+  if (connectionPromise) {
+    return connectionPromise;
+  }
+
+  connectionPromise = (async () => {
+    try {
+      if (mongoose.connection.readyState === 1) {
+        isConnected = true;
+        lastAttemptFailed = false;
+        return true;
+      }
+
+      await mongoose.connect(uri!, {
+        serverSelectionTimeoutMS: 3000,
+        connectTimeoutMS: 3000,
+        bufferCommands: false, // Do not buffer operations if disconnected
+      });
+      
+      isConnected = true;
+      lastAttemptFailed = false;
+      console.log('✅ Successfully connected to MongoDB Atlas.');
+      return true;
+    } catch (err: any) {
+      isConnected = false;
+      lastAttemptFailed = true;
+      lastAttemptTime = Date.now();
+      const reason = err?.message || String(err);
+      console.warn(`⚠️ [MongoDB] Atlas cluster is unreachable (${reason}). Seamlessly operating on internal JSON database.`);
+      return false;
+    } finally {
+      connectionPromise = null;
+    }
+  })();
+
+  return connectionPromise;
 }
 
 // User Schema

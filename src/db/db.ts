@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { User, Hostel, Room, HostelApplication, Notification } from '../types';
 import { 
   connectToMongoDB, 
+  isMongoConnected,
   MongoUserModel, 
   MongoHostelModel, 
   MongoRoomModel, 
@@ -797,7 +798,9 @@ export class DBEngine {
   static addUser(user: User) {
     this.data.users.push(user);
     this.save();
-    MongoUserModel.create(user).catch(err => console.error('Atlas sync failed (addUser):', err));
+    if (isMongoConnected()) {
+      MongoUserModel.create(user).catch((err: any) => console.warn('[Atlas sync (addUser)]:', err?.message || err));
+    }
   }
 
   static updateUser(id: string, updates: Partial<User>): boolean {
@@ -805,14 +808,18 @@ export class DBEngine {
     if (idx === -1) return false;
     this.data.users[idx] = { ...this.data.users[idx], ...updates };
     this.save();
-    MongoUserModel.updateOne({ id }, { $set: updates }).catch(err => console.error('Atlas sync failed (updateUser):', err));
+    if (isMongoConnected()) {
+      MongoUserModel.updateOne({ id }, { $set: updates }).catch((err: any) => console.warn('[Atlas sync (updateUser)]:', err?.message || err));
+    }
     return true;
   }
 
   static addHostel(hostel: Hostel) {
     this.data.hostels.push(hostel);
     this.save();
-    MongoHostelModel.create(hostel).catch(err => console.error('Atlas sync failed (addHostel):', err));
+    if (isMongoConnected()) {
+      MongoHostelModel.create(hostel).catch((err: any) => console.warn('[Atlas sync (addHostel)]:', err?.message || err));
+    }
   }
 
   static updateHostel(id: string, updates: Partial<Hostel>): boolean {
@@ -820,7 +827,9 @@ export class DBEngine {
     if (idx === -1) return false;
     this.data.hostels[idx] = { ...this.data.hostels[idx], ...updates };
     this.save();
-    MongoHostelModel.updateOne({ id }, { $set: updates }).catch(err => console.error('Atlas sync failed (updateHostel):', err));
+    if (isMongoConnected()) {
+      MongoHostelModel.updateOne({ id }, { $set: updates }).catch((err: any) => console.warn('[Atlas sync (updateHostel)]:', err?.message || err));
+    }
     return true;
   }
 
@@ -833,9 +842,11 @@ export class DBEngine {
     this.save();
     
     // Background MongoDB Atlas sync
-    MongoHostelModel.deleteOne({ id }).catch(err => console.error('Atlas sync failed (deleteHostel):', err));
-    MongoRoomModel.deleteMany({ hostelId: id }).catch(err => console.error('Atlas sync failed (cascade deleteRoom):', err));
-    MongoApplicationModel.deleteMany({ hostelId: id }).catch(err => console.error('Atlas sync failed (cascade deleteApplication):', err));
+    if (isMongoConnected()) {
+      MongoHostelModel.deleteOne({ id }).catch((err: any) => console.warn('[Atlas sync (deleteHostel)]:', err?.message || err));
+      MongoRoomModel.deleteMany({ hostelId: id }).catch((err: any) => console.warn('[Atlas sync (cascade deleteRoom)]:', err?.message || err));
+      MongoApplicationModel.deleteMany({ hostelId: id }).catch((err: any) => console.warn('[Atlas sync (cascade deleteApplication)]:', err?.message || err));
+    }
     
     return this.data.hostels.length < lenBefore;
   }
@@ -843,7 +854,9 @@ export class DBEngine {
   static addRoom(room: Room) {
     this.data.rooms.push(room);
     this.save();
-    MongoRoomModel.create(room).catch(err => console.error('Atlas sync failed (addRoom):', err));
+    if (isMongoConnected()) {
+      MongoRoomModel.create(room).catch((err: any) => console.warn('[Atlas sync (addRoom)]:', err?.message || err));
+    }
   }
 
   static updateRoom(id: string, updates: Partial<Room>): boolean {
@@ -851,7 +864,9 @@ export class DBEngine {
     if (idx === -1) return false;
     this.data.rooms[idx] = { ...this.data.rooms[idx], ...updates };
     this.save();
-    MongoRoomModel.updateOne({ id }, { $set: updates }).catch(err => console.error('Atlas sync failed (updateRoom):', err));
+    if (isMongoConnected()) {
+      MongoRoomModel.updateOne({ id }, { $set: updates }).catch((err: any) => console.warn('[Atlas sync (updateRoom)]:', err?.message || err));
+    }
     return true;
   }
 
@@ -859,14 +874,18 @@ export class DBEngine {
     const lenBefore = this.data.rooms.length;
     this.data.rooms = this.data.rooms.filter((r) => r.id !== id);
     this.save();
-    MongoRoomModel.deleteOne({ id }).catch(err => console.error('Atlas sync failed (deleteRoom):', err));
+    if (isMongoConnected()) {
+      MongoRoomModel.deleteOne({ id }).catch((err: any) => console.warn('[Atlas sync (deleteRoom)]:', err?.message || err));
+    }
     return this.data.rooms.length < lenBefore;
   }
 
   static addApplication(app: HostelApplication) {
     this.data.applications.push(app);
     this.save();
-    MongoApplicationModel.create(app).catch(err => console.error('Atlas sync failed (addApplication):', err));
+    if (isMongoConnected()) {
+      MongoApplicationModel.create(app).catch((err: any) => console.warn('[Atlas sync (addApplication)]:', err?.message || err));
+    }
   }
 
   static updateApplication(id: string, updates: Partial<HostelApplication>): boolean {
@@ -874,7 +893,9 @@ export class DBEngine {
     if (idx === -1) return false;
     this.data.applications[idx] = { ...this.data.applications[idx], ...updates, updatedAt: new Date().toISOString() };
     this.save();
-    MongoApplicationModel.updateOne({ id }, { $set: { ...updates, updatedAt: new Date().toISOString() } }).catch(err => console.error('Atlas sync failed (updateApplication):', err));
+    if (isMongoConnected()) {
+      MongoApplicationModel.updateOne({ id }, { $set: { ...updates, updatedAt: new Date().toISOString() } }).catch((err: any) => console.warn('[Atlas sync (updateApplication)]:', err?.message || err));
+    }
     return true;
   }
 
@@ -882,14 +903,18 @@ export class DBEngine {
     const lenBefore = this.data.applications.length;
     this.data.applications = this.data.applications.filter((a) => a.id !== id);
     this.save();
-    MongoApplicationModel.deleteOne({ id }).catch(err => console.error('Atlas sync failed (deleteApplication):', err));
+    if (isMongoConnected()) {
+      MongoApplicationModel.deleteOne({ id }).catch((err: any) => console.warn('[Atlas sync (deleteApplication)]:', err?.message || err));
+    }
     return this.data.applications.length < lenBefore;
   }
 
   static addNotification(notif: Notification) {
     this.data.notifications.push(notif);
     this.save();
-    MongoNotificationModel.create(notif).catch(err => console.error('Atlas sync failed (addNotification):', err));
+    if (isMongoConnected()) {
+      MongoNotificationModel.create(notif).catch((err: any) => console.warn('[Atlas sync (addNotification)]:', err?.message || err));
+    }
   }
 
   static markNotificationRead(id: string): boolean {
@@ -897,7 +922,9 @@ export class DBEngine {
     if (!notif) return false;
     notif.read = true;
     this.save();
-    MongoNotificationModel.updateOne({ id }, { $set: { read: true } }).catch(err => console.error('Atlas sync failed (markNotificationRead):', err));
+    if (isMongoConnected()) {
+      MongoNotificationModel.updateOne({ id }, { $set: { read: true } }).catch((err: any) => console.warn('[Atlas sync (markNotificationRead)]:', err?.message || err));
+    }
     return true;
   }
 }

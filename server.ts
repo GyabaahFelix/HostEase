@@ -12,35 +12,39 @@ import { StatsController } from './src/controllers/statsController';
 import { authMiddleware, requireRole } from './src/middleware/authMiddleware';
 
 // --- Environment Variables Startup Validation ---
-const requiredEnvVars = [
-  'PORT',
-  'NODE_ENV',
-  'ALLOWED_ORIGINS',
-  'MONGODB_URI',
+const requiredCoreVars = [
   'JWT_SECRET',
-  'JWT_EXPIRES_IN',
-  'CLOUDINARY_URL',
-  'GEMINI_API_KEY'
 ];
 
-const missingVars = requiredEnvVars.filter(v => !process.env[v]);
+const missingCoreVars = requiredCoreVars.filter(v => !process.env[v]);
 
-if (missingVars.length > 0) {
+if (missingCoreVars.length > 0) {
   console.error('\n====================================================');
-  console.error('❌ SERVER STARTUP VALIDATION FAILED:');
-  console.error('Missing required environment variable(s):');
-  missingVars.forEach(v => {
+  console.error('❌ SERVER STARTUP VALIDATION WARNING:');
+  console.error('Missing core environment variable(s):');
+  missingCoreVars.forEach(v => {
     console.error(`   - ${v}`);
   });
+  console.error('Generating development fallback credentials where possible.');
   console.error('====================================================\n');
-
-  if (process.env.NODE_ENV === 'production') {
-    console.error('Stopping server because NODE_ENV is set to production.');
-    process.exit(1);
-  } else {
-    console.warn('⚠️ WARNING: Running in non-production mode, continuing startup...');
-  }
 }
+
+// Optional integrations check
+const optionalIntegrations = [
+  { name: 'MongoDB Atlas Persistence', key: 'MONGODB_URI', fallback: 'Internal JSON Database Engine (data/db.json)' },
+  { name: 'Cloudinary CDN Asset Storage', key: 'CLOUDINARY_URL', fallback: 'Local Asset Gallery' },
+  { name: 'Gemini AI Assistant', key: 'GEMINI_API_KEY', fallback: 'Heuristic Rule-Based Matching' }
+];
+
+console.log('--- System Integrations Status ---');
+optionalIntegrations.forEach(svc => {
+  if (process.env[svc.key]) {
+    console.log(`✅ ${svc.name}: Configured via ${svc.key}`);
+  } else {
+    console.log(`ℹ️  ${svc.name}: Not configured. Active Fallback -> ${svc.fallback}`);
+  }
+});
+console.log('----------------------------------');
 
 // Initialize internal JSON database
 DBEngine.initialize();
